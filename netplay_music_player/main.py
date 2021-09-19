@@ -103,7 +103,7 @@ def pick_song(tlst_name, sound_dir):
 
     if tlst_name == "Results": # play ending results song
         results_entry = next((x for x in tlst_entries if x.song_id == "F400"), None)
-        return results_entry.filepath, 0
+        return results_entry.filepath, "", 0
     else: # pick song randomly out of available brstms and based on frequency
         entry_indices = range(len(tlst_entries))
         weights = [0]*len(tlst_entries)
@@ -113,7 +113,7 @@ def pick_song(tlst_name, sound_dir):
                 weights[i] = tlst_entry.frequency
 
         chosen_song = tlst_entries[random.choices(entry_indices, weights)[0]] # pick a song
-        return chosen_song.filepath, chosen_song.song_delay
+        return chosen_song.filepath, chosen_song.name, chosen_song.song_delay
 
 def cleanup(foobar_path):
     subprocess.Popen([foobar_path, "/exit"])
@@ -149,18 +149,19 @@ if __name__ == '__main__':
                     if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[0] + ".tlst")):
                         current_tlst = byte_string[0]
                     else: # if tlst not present first at memory address, find it at 3rd last index from where .rel was split
-                        for i, ch in enumerate(byte_string[-3]):
-                            if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[-3][i:] + ".tlst")): # filter out any junk characters
-                                current_tlst = byte_string[-3][i:]
-                                break
+                        if len(byte_string >= 3):
+                            for i, ch in enumerate(byte_string[-3]):
+                                if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[-3][i:] + ".tlst")): # filter out any junk characters
+                                    current_tlst = byte_string[-3][i:]
+                                    break
 
                     print(f"Current tlst: {current_tlst}")
                     if current_tlst:
-                        chosen_song, song_delay = pick_song(current_tlst, config["soundDir"])
+                        chosen_song, song_name, song_delay = pick_song(current_tlst, config["soundDir"])
                         song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
                         if len(song_filepaths):
                             subprocess.Popen([config["foobarPath"], "/stop"])
-                            print(f"Now playing {os.path.basename(song_filepaths[0])}")
+                            print(f"Now playing: {song_name} ({os.path.basename(song_filepaths[0])})")
 
                             # play song (delay if there is a set delay)
                             if song_delay == 0:
