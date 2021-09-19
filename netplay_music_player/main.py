@@ -103,7 +103,7 @@ def pick_song(tlst_name, sound_dir):
 
     if tlst_name == "Results": # play ending results song
         results_entry = next((x for x in tlst_entries if x.song_id == "F400"), None)
-        return results_entry.filepath
+        return results_entry.filepath, 0
     else: # pick song randomly out of available brstms and based on frequency
         entry_indices = range(len(tlst_entries))
         weights = [0]*len(tlst_entries)
@@ -112,7 +112,8 @@ def pick_song(tlst_name, sound_dir):
             #if os.path.isfile(os.path.join(sound_dir, "strm", tlst_entry.filepath + ".brstm")):
                 weights[i] = tlst_entry.frequency
 
-        return tlst_entries[random.choices(entry_indices, weights)[0]].filepath # pick a song
+        chosen_song = tlst_entries[random.choices(entry_indices, weights)[0]] # pick a song
+        return chosen_song.filepath, chosen_song.song_delay
 
 def cleanup(foobar_path):
     subprocess.Popen([foobar_path, "/exit"])
@@ -135,9 +136,9 @@ if __name__ == '__main__':
                 print("Hooked to Dolphin")
         else:
             try:
-                # P+ tlst memory address is 8053F02C in P+ 2.29, read extra bytes just in case tlst name is long
+                # P+ tlst memory address is 8053F02C in P+ 2.29, read extra bytes just in case tlst name is long / tlst is at a further memory addres
                 current_tlst_bytes = dolphin_memory_engine.read_bytes(int(config["tlstMemAddress"],0), config["readSize"])#config["readSize"]) # convert to tlst memory address in int
-                print(current_tlst_bytes)
+                #print(current_tlst_bytes)
                 if (prev_tlst_bytes != current_tlst_bytes):
 
                     current_tlst = ''
@@ -155,18 +156,29 @@ if __name__ == '__main__':
 
                     print(f"Current tlst: {current_tlst}")
                     if current_tlst:
-                        chosen_song = pick_song(current_tlst, config["soundDir"])
+                        chosen_song, song_delay = pick_song(current_tlst, config["soundDir"])
                         song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
                         if len(song_filepaths):
+                            subprocess.Popen([config["foobarPath"], "/stop"])
                             print(f"Now playing {os.path.basename(song_filepaths[0])}")
-                            subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+
+                            # play song (delay if there is a set delay)
+                            if song_delay == 0:
+                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+                            elif song_delay == -1: # start song at end of countdown
+                                time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
+                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+                            else: # start song after desired number of frames
+                                time.sleep(song_delay / 60)  # song_delay is in frames, Brawl runs 60fps, assume no lag
+                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+
 
                     prev_tlst_bytes = current_tlst_bytes
 
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
                 subprocess.Popen([config["foobarPath"], "/pause"])
-                prev_tlst = ""
+                prev_tlst_bytes = ""
                 print("Unhooked to Dolphin")
 
 
@@ -196,14 +208,3 @@ if __name__ == '__main__':
 
     # TODO: Cross platform (i.e. support for Cog on Mac)
 
-        #print(tlst_entries)
-
-
-
-            # Do stuff with byte.
-
-
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
-
-# Check if brstm exists before adding to random
