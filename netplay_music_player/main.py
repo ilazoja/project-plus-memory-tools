@@ -11,16 +11,14 @@ import sys
 import random
 import glob
 import subprocess
+import atexit
 
 import dolphin_memory_engine
 from pynput import keyboard
 import time
 
 
-from utils import BRAWL_BRSTM_DICT
-
-SOUND_DIR = "C:/Users/Ilir/Documents/Games/Brawl/Project+ Modding/Experimental/SD/Project+/pf/sound/"
-FOOBAR_PATH = "C:/Program Files (x86)/foobar2000/foobar2000.exe"
+from utils import BRAWL_BRSTM_DICT, get_config
 
 class TLSTEntryNode:
 
@@ -39,10 +37,10 @@ class TLSTEntryNode:
         self.name = ""
         self.filepath = ""
 
-def pick_song(tlst_name):
+def pick_song(tlst_name, sound_dir):
     # parse tlst and pick songs based on frequencies and if song is present
 
-    with open(os.path.join(SOUND_DIR, "tracklist", tlst_name + ".tlst"), "rb") as f:
+    with open(os.path.join(sound_dir, "tracklist", tlst_name + ".tlst"), "rb") as f:
         f.seek(12) # skip header
 
         tlst_entries = []
@@ -110,17 +108,24 @@ def pick_song(tlst_name):
         entry_indices = range(len(tlst_entries))
         weights = [0]*len(tlst_entries)
         for i, tlst_entry in enumerate(tlst_entries):
-            if len(glob.glob(os.path.join(SOUND_DIR, "strm", tlst_entry.filepath + ".*"))): # if file exists, add its weight
-            #if os.path.isfile(os.path.join(SOUND_DIR, "strm", tlst_entry.filepath + ".brstm")):
+            if len(glob.glob(glob.escape(os.path.join(sound_dir, "strm", tlst_entry.filepath)) + ".*")): # if file exists, add its weight
+            #if os.path.isfile(os.path.join(sound_dir, "strm", tlst_entry.filepath + ".brstm")):
                 weights[i] = tlst_entry.frequency
 
         return tlst_entries[random.choices(entry_indices, weights)[0]].filepath # pick a song
 
+def cleanup(foobar_path):
+    subprocess.Popen([foobar_path, "/exit"])
+
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    prev_tlst = ""
-    subprocess.Popen([FOOBAR_PATH])
+    config = get_config()
 
+    atexit.register(cleanup, config["foobarPath"])
+
+    subprocess.Popen([config["foobarPath"]])
+
+    prev_tlst_bytes = ""
     done = False
     print("Not hooked to Dolphin")
     while not done:
@@ -130,27 +135,43 @@ if __name__ == '__main__':
                 print("Hooked to Dolphin")
         else:
             try:
-                tlst_bytes = dolphin_memory_engine.read_bytes(2152984620, 50) # 8053F02C tlst memory address in int
-                current_tlst = str(tlst_bytes, 'utf-8').split("\x00", 1)[0]
-                if current_tlst != '' and current_tlst != prev_tlst:
-                    print(f"Current tlst: {current_tlst}")
-                    chosen_song = pick_song(current_tlst)
-                    song_filepaths = glob.glob(os.path.join(SOUND_DIR, "strm", chosen_song + ".*"))
-                    if len(song_filepaths):
-                        print(f"Now playing {os.path.basename(song_filepaths[0])}")
-                        subprocess.Popen([FOOBAR_PATH, song_filepaths[0]])
+                # P+ tlst memory address is 8053F02C in P+ 2.29, read extra bytes just in case tlst name is long
+                current_tlst_bytes = dolphin_memory_engine.read_bytes(int(config["tlstMemAddress"],0), config["readSize"])#config["readSize"]) # convert to tlst memory address in int
+                print(current_tlst_bytes)
+                if (prev_tlst_bytes != current_tlst_bytes):
 
-                    prev_tlst = current_tlst
+                    current_tlst = ''
+
+                    # Note: Some special stages like Spear Pillar, Shadow Moses Island, Castle Siege, Lylat Cruise, Mushroomy Kingdom have tlst at further location
+                    # Thus some searching is done if not at expected address
+                    byte_string = str(current_tlst_bytes, 'utf-8').split(".rel", 1)[0].split("\x00") # split at .rel, then split at \x00
+                    if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[0] + ".tlst")):
+                        current_tlst = byte_string[0]
+                    else: # if tlst not present first at memory address, find it at 3rd last index from where .rel was split
+                        for i, ch in enumerate(byte_string[-3]):
+                            if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[-3][i:] + ".tlst")): # filter out any junk characters
+                                current_tlst = byte_string[-3][i:]
+                                break
+
+                    print(f"Current tlst: {current_tlst}")
+                    if current_tlst:
+                        chosen_song = pick_song(current_tlst, config["soundDir"])
+                        song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
+                        if len(song_filepaths):
+                            print(f"Now playing {os.path.basename(song_filepaths[0])}")
+                            subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+
+                    prev_tlst_bytes = current_tlst_bytes
 
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
-                subprocess.Popen([FOOBAR_PATH, "/pause"])
+                subprocess.Popen([config["foobarPath"], "/pause"])
                 prev_tlst = ""
                 print("Unhooked to Dolphin")
 
 
         with keyboard.Events() as events:
-            event = events.get(0.5)
+            event = events.get(config["readFreq"])
             if event is None:
                 pass
             elif event.key == keyboard.Key.esc:
@@ -158,13 +179,22 @@ if __name__ == '__main__':
 
     dolphin_memory_engine.un_hook()
 
-    subprocess.Popen([FOOBAR_PATH, "/exit"])
+    cleanup(config["foobarPath"])
+
 
     # (install vgmstream component for foobar)
     # (set path of foorbar3000.exe to config) C:\Program Files (x86)\foobar2000
     # (set foobar to loop forever in Playback -> Decoding -> vgmstream)
 
+    # TODO: use configs for read freq and size, as well as have support for delay
 
+    ## Fixed Spear Pillar, Shadow Moses Island, Castle Siege, Lylat Cruise, Mushroomy Kingdom
+
+    # TODO: support pinch
+
+    # TODO: Support stage params so new tlsts can be added
+
+    # TODO: Cross platform (i.e. support for Cog on Mac)
 
         #print(tlst_entries)
 

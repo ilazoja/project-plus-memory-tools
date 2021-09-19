@@ -1,3 +1,25 @@
+import json
+import os
+
+CONFIG_JSON = "config.json"
+
+def get_config():
+    if os.path.exists(CONFIG_JSON):
+        # Use singleton pattern to store config file location/load config once
+        with open(CONFIG_JSON, 'r') as f:
+            return json.load(f)
+    else:
+        return {
+            "tlstMemAddress": "0x8053F02C",
+            "soundDir": "./sound",
+            "foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe",
+            "readFreq": 0.5, # in seconds
+            "readSize": 100,
+            "useDelay": False
+        }
+
+CONFIG = get_config()
+
 BRAWL_BRSTM_DICT = {
     "26F9": "X01",
     "26FA": "X02",
@@ -371,5 +393,3 @@ BRAWL_BRSTM_DICT = {
     "286A": "Z57",
     "286B": "Z58"
 }
-
-# 372
