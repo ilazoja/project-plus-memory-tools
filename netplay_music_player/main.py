@@ -3,15 +3,24 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
-import dolphin_memory_engine
+#pip install dolphin_memory_engine
+#pip install pynput
+
 import os
 import sys
 import random
+import glob
+import subprocess
+
+import dolphin_memory_engine
+from pynput import keyboard
+import time
+
 
 from utils import BRAWL_BRSTM_DICT
 
 SOUND_DIR = "C:/Users/Ilir/Documents/Games/Brawl/Project+ Modding/Experimental/SD/Project+/pf/sound/"
-
+FOOBAR_PATH = "C:/Program Files (x86)/foobar2000/foobar2000.exe"
 
 class TLSTEntryNode:
 
@@ -94,29 +103,69 @@ def pick_song(tlst_name):
                 tlst_entry.name = str(tlst_entry.name, 'utf-8')
                 f.read(1)
 
-    entry_indices = range(len(tlst_entries))
-    weights = [0]*len(tlst_entries)
-    for i, tlst_entry in enumerate(tlst_entries):
-        if os.path.isfile(os.path.join(SOUND_DIR, "strm", tlst_entry.filepath + ".brstm")): # if file exists, add its weight
-            weights[i] = tlst_entry.frequency
+    if tlst_name == "Results": # play ending results song
+        results_entry = next((x for x in tlst_entries if x.song_id == "F400"), None)
+        return results_entry.filepath
+    else: # pick song randomly out of available brstms and based on frequency
+        entry_indices = range(len(tlst_entries))
+        weights = [0]*len(tlst_entries)
+        for i, tlst_entry in enumerate(tlst_entries):
+            if len(glob.glob(os.path.join(SOUND_DIR, "strm", tlst_entry.filepath + ".*"))): # if file exists, add its weight
+            #if os.path.isfile(os.path.join(SOUND_DIR, "strm", tlst_entry.filepath + ".brstm")):
+                weights[i] = tlst_entry.frequency
 
-    return tlst_entries[random.choices(entry_indices, weights)[0]].filepath # pick a song
+        return tlst_entries[random.choices(entry_indices, weights)[0]].filepath # pick a song
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    # dolphin_memory_engine.hook()
-    # while(dolphin_memory_engine.is_hooked()):
-    #     tlst_bytes = dolphin_memory_engine.read_bytes(2152984620, 60) # 8053F02C tlst memory address in int
-    #     print(tlst_bytes)
-    #
-    # dolphin_memory_engine.un_hook()
+    prev_tlst = ""
+    subprocess.Popen([FOOBAR_PATH])
 
-    tlst_name = "Battlefield_Melee"
+    done = False
+    print("Not hooked to Dolphin")
+    while not done:
+        if not dolphin_memory_engine.is_hooked():
+            dolphin_memory_engine.hook()
+            if dolphin_memory_engine.is_hooked():
+                print("Hooked to Dolphin")
+        else:
+            try:
+                tlst_bytes = dolphin_memory_engine.read_bytes(2152984620, 50) # 8053F02C tlst memory address in int
+                current_tlst = str(tlst_bytes, 'utf-8').split("\x00", 1)[0]
+                if current_tlst != '' and current_tlst != prev_tlst:
+                    print(f"Current tlst: {current_tlst}")
+                    chosen_song = pick_song(current_tlst)
+                    song_filepaths = glob.glob(os.path.join(SOUND_DIR, "strm", chosen_song + ".*"))
+                    if len(song_filepaths):
+                        print(f"Now playing {os.path.basename(song_filepaths[0])}")
+                        subprocess.Popen([FOOBAR_PATH, song_filepaths[0]])
 
-    chosen_song = pick_song(tlst_name)
+                    prev_tlst = current_tlst
+
+            except RuntimeError:
+                dolphin_memory_engine.un_hook()
+                subprocess.Popen([FOOBAR_PATH, "/pause"])
+                prev_tlst = ""
+                print("Unhooked to Dolphin")
 
 
-    pass
+        with keyboard.Events() as events:
+            event = events.get(0.5)
+            if event is None:
+                pass
+            elif event.key == keyboard.Key.esc:
+                done = True
+
+    dolphin_memory_engine.un_hook()
+
+    subprocess.Popen([FOOBAR_PATH, "/exit"])
+
+    # (install vgmstream component for foobar)
+    # (set path of foorbar3000.exe to config) C:\Program Files (x86)\foobar2000
+    # (set foobar to loop forever in Playback -> Decoding -> vgmstream)
+
+
+
         #print(tlst_entries)
 
 
