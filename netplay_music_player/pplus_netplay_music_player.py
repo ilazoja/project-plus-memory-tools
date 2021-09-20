@@ -1,7 +1,3 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 #pip install dolphin_memory_engine
 #pip install pynput
@@ -122,13 +118,44 @@ def cleanup(foobar_path):
 if __name__ == '__main__':
     config = get_config()
 
-    atexit.register(cleanup, config["foobarPath"])
-
-    subprocess.Popen([config["foobarPath"]])
-
     prev_tlst_bytes = ""
     done = False
-    print("Not hooked to Dolphin")
+    print("Welcome to the (Unofficial) P+ Netplay Music Player! (press Q to exit at any time)")
+    print("")
+
+    if not os.path.isfile(config["foobarPath"]):
+        print("Error: foobar2000 installation not detected")
+        print("Please install foobar2000 (as well as its vgmstream plugin) to be able to play vgm music files (and other music files)")
+        while not os.path.isfile(config["foobarPath"]):
+            config = get_config()
+            with keyboard.Events() as events:
+                event = events.get(1)
+                if event is None:
+                    pass
+                elif event.key == keyboard.KeyCode.from_char('q'):
+                    sys.exit()
+
+    print("foobar2000 installation detected. Ensure to install the vgmstream plugin on foobar2000 if you haven't yet in order to play brstms.")
+    print("Also ensure to select 'Loop forever' in File->Preferences->Playback->Decoding->vgmstream")
+    print("")
+    if not os.path.isdir(os.path.join(config["soundDir"], "tracklist")) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
+        print("Error: sound folder given in config is invalid")
+        print("Please set soundDir in config.json to a your custom sound folder containing a tracklist subfolder (containing tlsts) and a strm subfolder (containing music files). The sound folder from P+ can be used to start with")
+        while not os.path.isdir(os.path.join(config["soundDir"], "tracklist")) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
+            config = get_config()
+            with keyboard.Events() as events:
+                event = events.get(1)
+                if event is None:
+                    pass
+                elif event.key == keyboard.KeyCode.from_char('q'):
+                    sys.exit()
+    print("Valid sound folder detected. Reminder you can edit tracklists using BrawlCrate and drop music files in the strm folder (as well as subfolders)")
+
+    atexit.register(cleanup, config["foobarPath"])
+    subprocess.Popen([config["foobarPath"]])
+
+    print("")
+    print("To begin, please start P+ Netplay (reminder to check 'Client Side Music Off' to turn off in game music). Use left/right arrows to adjust volume")
     while not done:
         if not dolphin_memory_engine.is_hooked():
             dolphin_memory_engine.hook()
@@ -161,24 +188,25 @@ if __name__ == '__main__':
                         song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
                         if len(song_filepaths):
                             subprocess.Popen([config["foobarPath"], "/stop"])
+                            subprocess.Popen([config["foobarPath"], "/command:Clear"])
                             print(f"Now playing: {song_name} ({os.path.basename(song_filepaths[0])})")
 
                             # play song (delay if there is a set delay)
-                            if song_delay == 0:
-                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
-                            elif song_delay == -1: # start song at end of countdown
+                            if song_delay == -1: # start song at end of countdown
                                 time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
-                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+                            elif song_delay <= 0:
+                                time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
                             else: # start song after desired number of frames
-                                time.sleep(song_delay / 60)  # song_delay is in frames, Brawl runs 60fps, assume no lag
-                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+                                time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
 
+                            subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+                            time.sleep(1)
 
                     prev_tlst_bytes = current_tlst_bytes
 
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
-                subprocess.Popen([config["foobarPath"], "/pause"])
+                subprocess.Popen([config["foobarPath"], "/stop"])
                 prev_tlst_bytes = ""
                 print("Unhooked to Dolphin")
 
@@ -187,7 +215,11 @@ if __name__ == '__main__':
             event = events.get(config["readFreq"])
             if event is None:
                 pass
-            elif event.key == keyboard.Key.esc:
+            elif event.key == keyboard.Key.left:
+                subprocess.Popen([config["foobarPath"], "/command:Down"])
+            elif event.key == keyboard.Key.right:
+                subprocess.Popen([config["foobarPath"], "/command:Up"])
+            elif event.key == keyboard.KeyCode.from_char('q'):
                 done = True
 
     dolphin_memory_engine.un_hook()
@@ -199,9 +231,9 @@ if __name__ == '__main__':
     # (set path of foorbar3000.exe to config) C:\Program Files (x86)\foobar2000
     # (set foobar to loop forever in Playback -> Decoding -> vgmstream)
 
-    # TODO: use configs for read freq and size, as well as have support for delay
-
     ## Fixed Spear Pillar, Shadow Moses Island, Castle Siege, Lylat Cruise, Mushroomy Kingdom
+
+    # TODO: Fix playback not playing / stacking instead
 
     # TODO: support pinch
 
