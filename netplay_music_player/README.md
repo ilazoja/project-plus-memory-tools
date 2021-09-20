@@ -15,7 +15,7 @@ pip install pynput
 
 Install [foobar2000](https://www.foobar2000.org/) and its [vgmstream plugin](https://www.foobar2000.org/components/view/foo_input_vgmstream). Once foobar2000 is installed, open it and select 'Loop forever' in File -> Preferences -> Playback -> Decoding -> vgmstream.
 
-Set the sound folder in config.json to your custom P+ sound folder (which should contain a tracklist subfolder containing .tlst files and a strm subfolder containing music files/subfolders). The sound folder from P+ can be used to start with. The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
+Set the sound folder in config.json to your custom P+ sound folder (which should contain a tracklist subfolder containing .tlst files and a strm subfolder containing music files/subfolders). The sound folder from P+ can be used to start with.
 
 ***
 
@@ -26,6 +26,8 @@ pplus_netplay_music_player.py
 If foobar2000 is installed and the P+ sound folder is found, then it will hook onto P+ Dolphin as soon as the game loads. On the P+ Netplay, check 'Client Side Music Off' to turn off in game music.
 
 Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adjust volume in game). Press Q at any time to quit the application
+
+The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
 
 ***
 
