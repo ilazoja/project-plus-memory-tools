@@ -149,13 +149,13 @@ if __name__ == '__main__':
                     if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[0] + ".tlst")):
                         current_tlst = byte_string[0]
                     else: # if tlst not present first at memory address, find it at 3rd last index from where .rel was split
-                        if len(byte_string >= 3):
+                        if len(byte_string) >= 3:
                             for i, ch in enumerate(byte_string[-3]):
                                 if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[-3][i:] + ".tlst")): # filter out any junk characters
                                     current_tlst = byte_string[-3][i:]
                                     break
 
-                    print(f"Current tlst: {current_tlst}")
+                    print(f"Current tlst: {current_tlst if current_tlst else byte_string[0]}")
                     if current_tlst:
                         chosen_song, song_name, song_delay = pick_song(current_tlst, config["soundDir"])
                         song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
