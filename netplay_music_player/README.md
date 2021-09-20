@@ -23,7 +23,7 @@ Set the sound folder in config.json to your custom P+ sound folder (which should
 
 pplus_netplay_music_player.py
 
-If foobar2000 is installed and the P+ sound folder is found, then it will hook onto P+ Dolphin as soon as the game loads. On the P+ Netplay, check 'Client Side Music Off' to turn off in game music.
+If foobar2000 is installed and the P+ sound folder is found, then it will hook onto P+ Dolphin as soon as the game loads. On the P+ Netplay window, check 'Client Side Music Off' to turn off in game music.
 
 Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adjust volume in game). Press Q at any time to quit the application
 
