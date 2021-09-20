@@ -30,6 +30,12 @@ Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adju
 The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
 
 ***
+# Future Plans
+
+- Pinch support
+- Multiplatform support
+
+***
 
 # Acknowledgements
 
@@ -37,4 +43,4 @@ DukeItOut for the very robust P+ music system and tlst file format
 
 soopercool101 for tlst parsing reference from [BrawlCrate](https://github.com/soopercool101/BrawlCrate) and tlst editing
 
-[py-dolphin-memory-engine](https://github.com/henriquegemignani/py-dolphin-memory-engine) contributors
+[py-dolphin-memory-engine](https://github.com/henriquegemignani/py-dolphin-memory-engine) and [vgmstream](https://vgmstream.org/) contributors
