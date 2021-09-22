@@ -13,7 +13,6 @@ import dolphin_memory_engine
 from pynput import keyboard
 import time
 
-
 from utils import BRAWL_BRSTM_DICT, get_config
 
 class TLSTEntryNode:
@@ -37,33 +36,35 @@ def pick_song(tlst_name, sound_dir):
     # parse tlst and pick songs based on frequencies and if song is present
 
     with open(os.path.join(sound_dir, "tracklist", tlst_name + ".tlst"), "rb") as f:
-        f.seek(12) # skip header
 
-        tlst_entries = []
+        ## Read header
+        f.seek(6)
 
-        while (current_bytes := f.read(2)): # read each tlst entry
-            if current_bytes == b'\x00\x00': # entries start with 0000
-                song_id = f.read(2).hex().upper()
-                song_delay = int.from_bytes(f.read(2), "big", signed=True)
-                volume = int.from_bytes(f.read(1), "big", signed=False)
-                frequency = int.from_bytes(f.read(1), "big", signed=False)
-                filepath_offset = f.read(2)
-                name_offset = f.read(2)
-                song_switch = int.from_bytes(f.read(2), "big", signed=False)
-                disable_stock_pinch = bool.from_bytes(f.read(1), "big")
-                hidden_from_tracklist = bool.from_bytes(f.read(1), "big")
+        num_entries = int.from_bytes(f.read(2), "big", signed = False)
+        tlst_entries = [None]*num_entries
+        tlst_size = int.from_bytes(f.read(2), "big", signed = False)
+        tlst_string_start_offset = int.from_bytes(f.read(2), "big", signed = False) #num_entries*16 + 12
+        tlst_string_size = tlst_size - tlst_string_start_offset
 
-                tlst_entries.append(TLSTEntryNode(song_id, song_delay, volume, frequency, song_switch, disable_stock_pinch, hidden_from_tracklist, name_offset, filepath_offset))
+        ## Read tlst entries
+        for i in range(num_entries):
+            f.read(2)
+            song_id = f.read(2).hex().upper()
+            song_delay = int.from_bytes(f.read(2), "big", signed=True)
+            volume = int.from_bytes(f.read(1), "big", signed=False)
+            frequency = int.from_bytes(f.read(1), "big", signed=False)
+            filepath_offset = f.read(2)
+            name_offset = f.read(2)
+            song_switch = int.from_bytes(f.read(2), "big", signed=False)
+            disable_stock_pinch = bool.from_bytes(f.read(1), "big")
+            hidden_from_tracklist = bool.from_bytes(f.read(1), "big")
+            tlst_entries[i] = TLSTEntryNode(song_id, song_delay, volume, frequency, song_switch, disable_stock_pinch, hidden_from_tracklist, name_offset, filepath_offset)
 
-            else:
-                break
-        f.seek(-2, 1)
-
-        # start parsing strings (filepath and name) which is found at the end of the tlst
+        ## start parsing strings (filepath and name) which is found at the end of the tlst
         for i, tlst_entry in enumerate(tlst_entries):
             if tlst_entry.filepath_offset != b'\xff\xff':
                 start_index = int.from_bytes(tlst_entry.filepath_offset, "big", signed=False)
-                end_index = -1
+                end_index = tlst_string_size - 1
                 if tlst_entry.name_offset != b'\xff\xff':
                     end_index = int.from_bytes(tlst_entry.name_offset, "big", signed=False) - 1
                 else:
@@ -75,7 +76,7 @@ def pick_song(tlst_name, sound_dir):
                             end_index = int.from_bytes(future_tlst_entry.name_offset, "big", signed=False) - 1
                             break
 
-                tlst_entry.filepath = f.read(end_index - start_index) if end_index != -1 else f.read(end_index)[:-1]
+                tlst_entry.filepath = f.read(end_index - start_index) # if end_index != -1 else f.read(end_index)[:-1]
                 tlst_entry.filepath = str(tlst_entry.filepath, 'utf-8')
                 f.read(1)
             else:
@@ -83,7 +84,7 @@ def pick_song(tlst_name, sound_dir):
                     tlst_entry.filepath = BRAWL_BRSTM_DICT.get(tlst_entry.song_id, "")
             if tlst_entry.name_offset != b'\xff\xff':
                 start_index = int.from_bytes(tlst_entry.name_offset, "big", signed=False)
-                end_index = -1
+                end_index = tlst_string_size - 1
                 for j, future_tlst_entry in enumerate(tlst_entries[i + 1:]): # find end_index (i.e. start index of next string)
                     if future_tlst_entry.filepath_offset != b'\xFF\xFF':
                         end_index = int.from_bytes(future_tlst_entry.filepath_offset, "big", signed=False) - 1
@@ -93,7 +94,7 @@ def pick_song(tlst_name, sound_dir):
                         break
 
 
-                tlst_entry.name = f.read(end_index - start_index) if end_index != -1 else f.read(end_index)[:-1]
+                tlst_entry.name = f.read(end_index - start_index) # if end_index != -1 else f.read(end_index)[:-1]
                 tlst_entry.name = str(tlst_entry.name, 'utf-8')
                 f.read(1)
 
@@ -235,9 +236,23 @@ if __name__ == '__main__':
 
     # TODO: Fix playback not playing / stacking instead
 
+    # TODO: Switch to dedicated playlist (to avoid overwriting other active playlists)
+
+    # TODO: Use usedelay config parameter
+
     # TODO: support pinch
 
     # TODO: Support stage params so new tlsts can be added
 
-    # TODO: Cross platform (i.e. support for Cog on Mac)
+    # TODO: Cross platform (py-dme doesn't support mac however) (also need to consider controls)
+
+    # TODO: change in game song text to song being played (find address, write to it and see if it causes a desync)
+    # At 8053F200 according to ASM code in MyMusic.asm, exact same structure as tlst, need to reorganize the strings (or what if you just dumped the tlst to the memory address), or just make a single entry. Might have to replace strings of every entry unless can find which entry was picked
+
+    # TODO: support volume?
+
+    # TODO: redo it in lua to be part of m-overlay?
+
+    # TODO: try to write brstm stream bytes in-game?
+
 
