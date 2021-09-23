@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
     prev_rel_name = ""
     done = False
-    print("Welcome to the (Unofficial) P+ Netplay Music Player! (press Q to exit at any time)")
+    print("Welcome to the (Unofficial) P+ Netplay Music Player! (press ` to exit at any time)")
     print("")
 
     if not os.path.isfile(config["foobarPath"]):
@@ -211,9 +211,9 @@ if __name__ == '__main__':
                                 current_timestamp = time.time()
 
                                 # play song (delay if there is a set delay)
-                                if song_delay == -1 and not config['useDelay']: # start song at end of countdown
+                                if song_delay == -1 and config['useDelay']: # start song at end of countdown
                                     time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
-                                elif song_delay <= 0 or config['useDelay']:
+                                elif song_delay <= 0 or not config['useDelay']:
                                     if (current_timestamp - last_played_timestamp < min_song_switch_time):
                                         time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together)
                                     else:
@@ -245,7 +245,7 @@ if __name__ == '__main__':
                 subprocess.Popen([config["foobarPath"], "/command:Down"])
             elif event.key == keyboard.Key.right:
                 subprocess.Popen([config["foobarPath"], "/command:Up"])
-            elif event.key == keyboard.KeyCode.from_char('q'): # TODO: maybe change since can trigger while typing
+            elif event.key == keyboard.KeyCode.from_char('`'):
                 done = True
 
     dolphin_memory_engine.un_hook()
@@ -262,8 +262,6 @@ if __name__ == '__main__':
     # TODO: Fix playback not playing / stacking instead
 
     # TODO: Switch to dedicated playlist (to avoid overwriting other active playlists)
-
-    # TODO: Use usedelay config parameter
 
     # TODO: support pinch
 
