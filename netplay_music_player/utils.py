@@ -10,11 +10,11 @@ def get_config():
             return json.load(f)
     else:
         return {
-            "tlstMemAddress": "0x8053F02C",
+            "stexMemAddress": "0x8053F000",
+            "tlstMemAddress": "0x8053F200",
             "soundDir": "./sound",
             "foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe",
             "readFreq": 0.5, # in seconds
-            "readSize": 100,
             "useDelay": False
         }
 

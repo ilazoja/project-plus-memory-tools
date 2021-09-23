@@ -113,13 +113,14 @@ def pick_song(tlst_name, sound_dir):
         return chosen_song.filepath, chosen_song.name, chosen_song.song_delay
 
 def cleanup(foobar_path):
+    #subprocess.Popen([config["foobarPath"], "/command:Remove Playlist"]) # ends up removing every playlist
     subprocess.Popen([foobar_path, "/exit"])
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     config = get_config()
 
-    prev_tlst_bytes = ""
+    prev_rel_name = ""
     done = False
     print("Welcome to the (Unofficial) P+ Netplay Music Player! (press Q to exit at any time)")
     print("")
@@ -154,6 +155,8 @@ if __name__ == '__main__':
 
     atexit.register(cleanup, config["foobarPath"])
     subprocess.Popen([config["foobarPath"]])
+    #subprocess.Popen([config["foobarPath"], "/command:New Playlist"])
+    #subprocess.Popen([config["foobarPath"], "/hide"]) # doesn't stay hidden
 
     print("")
     print("To begin, please start P+ Netplay (reminder to check 'Client Side Music Off' to turn off in game music). Use left/right arrows to adjust volume")
@@ -165,50 +168,45 @@ if __name__ == '__main__':
         else:
             try:
                 # P+ tlst memory address is 8053F02C in P+ 2.29, read extra bytes just in case tlst name is long / tlst is at a further memory addres
-                current_tlst_bytes = dolphin_memory_engine.read_bytes(int(config["tlstMemAddress"],0), config["readSize"])#config["readSize"]) # convert to tlst memory address in int
-                #print(current_tlst_bytes)
-                if (prev_tlst_bytes != current_tlst_bytes):
+                stex_header_bytes = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0), 12)#config["readSize"])
+                if stex_header_bytes[0:4] == b'STEX':
+                    stex_string_start_offset = int.from_bytes(stex_header_bytes[4:8], "big", signed=False)
+                    stex_size = int.from_bytes(stex_header_bytes[8:12], "big", signed=False)
+                    rel_name_offset = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0) + 32, 4)
+                    rel_name_offset = 0 if rel_name_offset == b'\xff\xff\xff\xff' else int.from_bytes(rel_name_offset, "big", signed=False)
+                    current_rel_name = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset + rel_name_offset, stex_size - rel_name_offset - stex_string_start_offset )
+                    #print(current_tlst_bytes)
+                    if (prev_rel_name != current_rel_name):
+                        stage_name_offset = int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
+                        current_tlst_name = str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset,
+                                                             stage_name_offset - 1), 'utf-8')
 
-                    current_tlst = ''
+                        print(f"Current tlst: {current_tlst_name}")
+                        if os.path.isfile(os.path.join(config["soundDir"], "tracklist", current_tlst_name + ".tlst")):
+                            chosen_song, song_name, song_delay = pick_song(current_tlst_name, config["soundDir"])
+                            song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
+                            if len(song_filepaths):
+                                subprocess.Popen([config["foobarPath"], "/stop"])
+                                subprocess.Popen([config["foobarPath"], "/command:Clear"])
+                                print(f"Now playing: {song_name} ({os.path.basename(song_filepaths[0])})")
 
-                    # Note: Some special stages like Spear Pillar, Shadow Moses Island, Castle Siege, Lylat Cruise, Mushroomy Kingdom have tlst at further location
-                    # Thus some searching is done if not at expected address
-                    byte_string = str(current_tlst_bytes, 'utf-8').split(".rel", 1)[0].split("\x00") # split at .rel, then split at \x00
-                    if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[0] + ".tlst")):
-                        current_tlst = byte_string[0]
-                    else: # if tlst not present first at memory address, find it at 3rd last index from where .rel was split
-                        if len(byte_string) >= 3:
-                            for i, ch in enumerate(byte_string[-3]):
-                                if os.path.isfile(os.path.join(config["soundDir"], "tracklist", byte_string[-3][i:] + ".tlst")): # filter out any junk characters
-                                    current_tlst = byte_string[-3][i:]
-                                    break
+                                # play song (delay if there is a set delay)
+                                if song_delay == -1: # start song at end of countdown
+                                    time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
+                                elif song_delay <= 0:
+                                    time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
+                                else: # start song after desired number of frames
+                                    time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
 
-                    print(f"Current tlst: {current_tlst if current_tlst else byte_string[0]}")
-                    if current_tlst:
-                        chosen_song, song_name, song_delay = pick_song(current_tlst, config["soundDir"])
-                        song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
-                        if len(song_filepaths):
-                            subprocess.Popen([config["foobarPath"], "/stop"])
-                            subprocess.Popen([config["foobarPath"], "/command:Clear"])
-                            print(f"Now playing: {song_name} ({os.path.basename(song_filepaths[0])})")
+                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
+                                time.sleep(1)
 
-                            # play song (delay if there is a set delay)
-                            if song_delay == -1: # start song at end of countdown
-                                time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
-                            elif song_delay <= 0:
-                                time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
-                            else: # start song after desired number of frames
-                                time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
-
-                            subprocess.Popen([config["foobarPath"], song_filepaths[0]])
-                            time.sleep(1)
-
-                    prev_tlst_bytes = current_tlst_bytes
+                        prev_rel_name = current_rel_name
 
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
                 subprocess.Popen([config["foobarPath"], "/stop"])
-                prev_tlst_bytes = ""
+                prev_rel_name = ""
                 print("Unhooked to Dolphin")
 
 
@@ -249,10 +247,12 @@ if __name__ == '__main__':
     # TODO: change in game song text to song being played (find address, write to it and see if it causes a desync)
     # At 8053F200 according to ASM code in MyMusic.asm, exact same structure as tlst, need to reorganize the strings (or what if you just dumped the tlst to the memory address), or just make a single entry. Might have to replace strings of every entry unless can find which entry was picked
 
-    # TODO: support volume?
+    # TODO: support volume? use percentage of current volume?
 
     # TODO: redo it in lua to be part of m-overlay?
 
     # TODO: try to write brstm stream bytes in-game?
+
+    # TODO: override MyMusic?? might happen too fast, maybe would have to add a delay in assembly but then would cause desync
 
 

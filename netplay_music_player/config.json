@@ -1,6 +1,6 @@
-{"tlstMemAddress": "0x8053F02C", 
-"soundDir": "C:/Users/Ilir/Documents/Games/Brawl/Project+ Modding/Experimental/SD/Project+/pf/sound/", 
-"foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe", 
-"readFreq": 0.5,
-"readSize": 100,
-"useDelay": false}
+{ "stexMemAddress": "0x8053F000",
+  "tlstMemAddress": "0x8053F200",
+  "soundDir": "C:/Users/Ilir/Documents/Games/Brawl/Project+ Modding/Experimental/SD/Project+/pf/sound/",
+  "foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe",
+  "readFreq": 0.5,
+  "useDelay": false}
