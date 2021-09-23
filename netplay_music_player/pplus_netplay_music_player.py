@@ -167,19 +167,18 @@ if __name__ == '__main__':
                 print("Hooked to Dolphin")
         else:
             try:
-                # P+ tlst memory address is 8053F02C in P+ 2.29, read extra bytes just in case tlst name is long / tlst is at a further memory addres
-                stex_header_bytes = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0), 12)#config["readSize"])
-                if stex_header_bytes[0:4] == b'STEX':
-                    stex_string_start_offset = int.from_bytes(stex_header_bytes[4:8], "big", signed=False)
-                    stex_size = int.from_bytes(stex_header_bytes[8:12], "big", signed=False)
-                    rel_name_offset = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0) + 32, 4)
+                stex_bytes = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0), 512)  # read all stex bytes at once just in case stuff updates in between reading
+                #stex_header_bytes = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0), 12)#config["readSize"])
+                if stex_bytes[0:4] == b'STEX':
+                    stex_string_start_offset = int.from_bytes(stex_bytes[4:8], "big", signed=False)
+                    stex_size = int.from_bytes(stex_bytes[8:12], "big", signed=False)
+                    rel_name_offset = stex_bytes[32:36]   #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0) + 32, 4)
                     rel_name_offset = 0 if rel_name_offset == b'\xff\xff\xff\xff' else int.from_bytes(rel_name_offset, "big", signed=False)
-                    current_rel_name = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset + rel_name_offset, stex_size - rel_name_offset - stex_string_start_offset )
+                    current_rel_name = stex_bytes[stex_string_start_offset + rel_name_offset:stex_string_start_offset + rel_name_offset + stex_size - rel_name_offset - stex_string_start_offset]  #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset + rel_name_offset, stex_size - rel_name_offset - stex_string_start_offset )
                     #print(current_tlst_bytes)
                     if (prev_rel_name != current_rel_name):
-                        stage_name_offset = int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
-                        current_tlst_name = str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset,
-                                                             stage_name_offset - 1), 'utf-8')
+                        stage_name_offset = int.from_bytes(stex_bytes[28:32], "big", signed=False) #int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
+                        current_tlst_name = str(stex_bytes[stex_string_start_offset:stex_string_start_offset + stage_name_offset - 1], 'utf-8')#str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset, stage_name_offset - 1), 'utf-8')
 
                         print(f"Current tlst: {current_tlst_name}")
                         if os.path.isfile(os.path.join(config["soundDir"], "tracklist", current_tlst_name + ".tlst")):
