@@ -158,6 +158,9 @@ if __name__ == '__main__':
     #subprocess.Popen([config["foobarPath"], "/command:New Playlist"])
     #subprocess.Popen([config["foobarPath"], "/hide"]) # doesn't stay hidden
 
+    min_song_switch_time = 1.5
+    last_played_timestamp = time.time()
+
     print("")
     print("To begin, please start P+ Netplay (reminder to check 'Client Side Music Off' to turn off in game music). Use left/right arrows to adjust volume")
     while not done:
@@ -205,16 +208,25 @@ if __name__ == '__main__':
                                 subprocess.Popen([config["foobarPath"], "/command:Clear"])
                                 print(f"Now playing: {str(song_name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
 
+                                current_timestamp = time.time()
+
                                 # play song (delay if there is a set delay)
                                 if song_delay == -1 and not config['useDelay']: # start song at end of countdown
                                     time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
                                 elif song_delay <= 0 or config['useDelay']:
-                                    time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
+                                    if (current_timestamp - last_played_timestamp < min_song_switch_time):
+                                        time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together)
+                                    else:
+                                        time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
                                 else: # start song after desired number of frames
-                                    time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
+                                    if (song_delay/60 < min_song_switch_time) and (current_timestamp - last_played_timestamp < min_song_switch_time):
+                                        time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together
+                                    else:
+                                        time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
 
                                 subprocess.Popen([config["foobarPath"], song_filepaths[0]])
-                                time.sleep(1)
+
+                                last_played_timestamp = current_timestamp
 
                         prev_rel_name = current_rel_name
 
@@ -233,7 +245,7 @@ if __name__ == '__main__':
                 subprocess.Popen([config["foobarPath"], "/command:Down"])
             elif event.key == keyboard.Key.right:
                 subprocess.Popen([config["foobarPath"], "/command:Up"])
-            elif event.key == keyboard.KeyCode.from_char('q'):
+            elif event.key == keyboard.KeyCode.from_char('q'): # TODO: maybe change since can trigger while typing
                 done = True
 
     dolphin_memory_engine.un_hook()
@@ -268,6 +280,6 @@ if __name__ == '__main__':
 
     # TODO: try to write brstm stream bytes in-game?
 
-    # TODO: override MyMusic?? might happen too fast, maybe would have to add a delay in assembly but then would cause desync
+    # TODO: override MyMusic?? might happen too fast, maybe would have to add a delay in assembly but then would cause desync.
 
 
