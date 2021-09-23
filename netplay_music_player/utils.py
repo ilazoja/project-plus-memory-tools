@@ -15,7 +15,9 @@ def get_config():
             "soundDir": "./sound",
             "foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe",
             "readFreq": 0.5, # in seconds
-            "useDelay": False
+            "displayTrackName": True,
+            "useDelay": True,
+            "useVolume": False
         }
 
 CONFIG = get_config()

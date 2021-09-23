@@ -29,7 +29,7 @@ class TLSTEntryNode:
         self.name_offset = name_offset
         self.filepath_offset = filepath_offset
 
-        self.name = ""
+        self.name = b''
         self.filepath = ""
 
 def pick_song(tlst_name, sound_dir):
@@ -95,12 +95,12 @@ def pick_song(tlst_name, sound_dir):
 
 
                 tlst_entry.name = f.read(end_index - start_index) # if end_index != -1 else f.read(end_index)[:-1]
-                tlst_entry.name = str(tlst_entry.name, 'utf-8')
+                #tlst_entry.name = str(tlst_entry.name, 'utf-8')
                 f.read(1)
 
     if tlst_name == "Results": # play ending results song
         results_entry = next((x for x in tlst_entries if x.song_id == "F400"), None)
-        return results_entry.filepath, "", 0
+        return results_entry.filepath, b'', 0
     else: # pick song randomly out of available brstms and based on frequency
         entry_indices = range(len(tlst_entries))
         weights = [0]*len(tlst_entries)
@@ -186,14 +186,30 @@ if __name__ == '__main__':
                             chosen_song, song_name, song_delay = pick_song(current_tlst_name, config["soundDir"])
                             song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
                             if len(song_filepaths):
+                                if (config["displayTrackName"]):
+                                    num_entries = int.from_bytes(
+                                        dolphin_memory_engine.read_bytes(int(config["tlstMemAddress"], 0) + 6, 2), "big", signed=False)
+                                    string_start_offset = int.from_bytes(
+                                        dolphin_memory_engine.read_bytes(int(config["tlstMemAddress"], 0) + 10, 2), "big", signed=False)
+                                    last_string_offset_bytes = dolphin_memory_engine.read_bytes(
+                                        int("0x8053F200", 0) + 6 + num_entries * 16, 2)
+                                    last_string_offset = int.from_bytes(last_string_offset_bytes, "big", signed=False)
+
+                                    for i in range(1, num_entries):
+                                        dolphin_memory_engine.write_bytes(int(config["tlstMemAddress"], 0) + 6 + i * 16,
+                                                                          last_string_offset_bytes)
+
+                                    dolphin_memory_engine.write_bytes(
+                                        int(config["tlstMemAddress"], 0) + string_start_offset + last_string_offset, song_name + b"\00")
+
                                 subprocess.Popen([config["foobarPath"], "/stop"])
                                 subprocess.Popen([config["foobarPath"], "/command:Clear"])
-                                print(f"Now playing: {song_name} ({os.path.basename(song_filepaths[0])})")
+                                print(f"Now playing: {str(song_name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
 
                                 # play song (delay if there is a set delay)
-                                if song_delay == -1: # start song at end of countdown
+                                if song_delay == -1 and not config['useDelay']: # start song at end of countdown
                                     time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
-                                elif song_delay <= 0:
+                                elif song_delay <= 0 or config['useDelay']:
                                     time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
                                 else: # start song after desired number of frames
                                     time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
