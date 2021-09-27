@@ -100,7 +100,7 @@ def pick_song(tlst_name, sound_dir):
 
     if tlst_name == "Results": # play ending results song
         results_entry = next((x for x in tlst_entries if x.song_id == "F400"), None)
-        return results_entry.filepath, b'', 0
+        return results_entry#.filepath, b'', 0
     else: # pick song randomly out of available brstms and based on frequency
         entry_indices = range(len(tlst_entries))
         weights = [0]*len(tlst_entries)
@@ -109,8 +109,8 @@ def pick_song(tlst_name, sound_dir):
             #if os.path.isfile(os.path.join(sound_dir, "strm", tlst_entry.filepath + ".brstm")):
                 weights[i] = tlst_entry.frequency
 
-        chosen_song = tlst_entries[random.choices(entry_indices, weights)[0]] # pick a song
-        return chosen_song.filepath, chosen_song.name, chosen_song.song_delay
+        chosen_song_entry = tlst_entries[random.choices(entry_indices, weights)[0]] # pick a song
+        return chosen_song_entry#.filepath, chosen_song.name, chosen_song.song_delay
 
 def cleanup(foobar_path):
     #subprocess.Popen([config["foobarPath"], "/command:Remove Playlist"]) # ends up removing every playlist
@@ -172,23 +172,27 @@ if __name__ == '__main__':
             try:
                 stex_bytes = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0), 512)  # read all stex bytes at once just in case stuff updates in between reading
                 #stex_header_bytes = dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0), 12)#config["readSize"])
-                if stex_bytes[0:4] == b'STEX':
+                if stex_bytes[0:4] == b'STEX': # check if game loaded (an stex param file got loaded)
                     stex_string_start_offset = int.from_bytes(stex_bytes[4:8], "big", signed=False)
                     stex_size = int.from_bytes(stex_bytes[8:12], "big", signed=False)
                     rel_name_offset = stex_bytes[32:36]   #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0) + 32, 4)
                     rel_name_offset = 0 if rel_name_offset == b'\xff\xff\xff\xff' else int.from_bytes(rel_name_offset, "big", signed=False)
                     current_rel_name = stex_bytes[stex_string_start_offset + rel_name_offset:stex_string_start_offset + rel_name_offset + stex_size - rel_name_offset - stex_string_start_offset]  #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset + rel_name_offset, stex_size - rel_name_offset - stex_string_start_offset )
                     #print(current_tlst_bytes)
-                    if (prev_rel_name != current_rel_name):
+                    if (prev_rel_name != current_rel_name): # if rel name changed, that means stage changed
                         stage_name_offset = int.from_bytes(stex_bytes[28:32], "big", signed=False) #int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
                         current_tlst_name = str(stex_bytes[stex_string_start_offset:stex_string_start_offset + stage_name_offset - 1], 'utf-8')#str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset, stage_name_offset - 1), 'utf-8')
 
                         print(f"Current tlst: {current_tlst_name}")
                         if os.path.isfile(os.path.join(config["soundDir"], "tracklist", current_tlst_name + ".tlst")):
-                            chosen_song, song_name, song_delay = pick_song(current_tlst_name, config["soundDir"])
-                            song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song)) + ".*")
+                            chosen_song_entry = pick_song(current_tlst_name, config["soundDir"])
+                            song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song_entry.filepath)) + ".*")
                             if len(song_filepaths):
                                 if (config["displayTrackName"]):
+                                    # Hijack each tlst entries' trackname offset in memory to point to the last tlst entry's trackname string
+                                    # Then overwrite the last entry's trackname string
+                                    # When the game looks for the track name to display, every tlst entry will point to the same track name
+
                                     num_entries = int.from_bytes(
                                         dolphin_memory_engine.read_bytes(int(config["tlstMemAddress"], 0) + 6, 2), "big", signed=False)
                                     string_start_offset = int.from_bytes(
@@ -202,27 +206,28 @@ if __name__ == '__main__':
                                                                           last_string_offset_bytes)
 
                                     dolphin_memory_engine.write_bytes(
-                                        int(config["tlstMemAddress"], 0) + string_start_offset + last_string_offset, song_name + b"\00")
+                                        int(config["tlstMemAddress"], 0) + string_start_offset + last_string_offset, chosen_song_entry.name + b"\00")
 
                                 subprocess.Popen([config["foobarPath"], "/stop"])
                                 subprocess.Popen([config["foobarPath"], "/command:Clear"])
-                                print(f"Now playing: {str(song_name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
+                                print(f"Now playing: {str(chosen_song_entry.name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
 
                                 current_timestamp = time.time()
 
                                 # play song (delay if there is a set delay)
-                                if song_delay == -1 and config['useDelay']: # start song at end of countdown
+                                if chosen_song_entry.song_delay == -1 and config['useDelay']: # start song at end of countdown  # TODO: should use Frames Into Current Game instead
                                     time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
-                                elif song_delay <= 0 or not config['useDelay']:
+                                elif chosen_song_entry.song_delay <= 0 or not config['useDelay']:
                                     if (current_timestamp - last_played_timestamp < min_song_switch_time):
                                         time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together)
                                     else:
-                                        time.sleep(0.1) # minimum delay otherwise commands happen to fast and added song will start stopped
+                                        time.sleep(0.1) # minimum delay otherwise commands happen too fast and added song will start stopped
                                 else: # start song after desired number of frames
-                                    if (song_delay/60 < min_song_switch_time) and (current_timestamp - last_played_timestamp < min_song_switch_time):
+                                    if (chosen_song_entry.song_delay/60 < min_song_switch_time) and (current_timestamp - last_played_timestamp < min_song_switch_time):
                                         time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together
                                     else:
-                                        time.sleep(max(0.1, song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag
+                                        # TODO: Don't use sleep but instead put in loop, otherwise song could switch during delay if delay is long
+                                        time.sleep(max(0.1, chosen_song_entry.song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag. TODO: Use current frames
 
                                 subprocess.Popen([config["foobarPath"], song_filepaths[0]])
 
@@ -259,25 +264,40 @@ if __name__ == '__main__':
 
     ## Fixed Spear Pillar, Shadow Moses Island, Castle Siege, Lylat Cruise, Mushroomy Kingdom
 
-    # TODO: Fix playback not playing / stacking instead
-
     # TODO: Switch to dedicated playlist (to avoid overwriting other active playlists)
 
     # TODO: support pinch
+    # at mem address 805A7B18 shows song currently playing, check if song changes. Won't work, pinch might be select by tlst outside, not every tlst in game has a pinch
+    # or check pinch asm to see what addresses to look for in requirements
+    # check DME address file
 
     # TODO: Support stage params so new tlsts can be added
+    # Use stageid, but might have to figure out which out which button combo was picked (maybe determine by .pac, only limitation would be if two alts share the saame.pac)
+    # if param / stage id doesn't exist then use tlst name loaded in game
 
     # TODO: Cross platform (py-dme doesn't support mac however) (also need to consider controls)
 
-    # TODO: change in game song text to song being played (find address, write to it and see if it causes a desync)
-    # At 8053F200 according to ASM code in MyMusic.asm, exact same structure as tlst, need to reorganize the strings (or what if you just dumped the tlst to the memory address), or just make a single entry. Might have to replace strings of every entry unless can find which entry was picked
+    ## change in game song text to song being played (found tlst address and wrote to it). Doesn't seem to cause a desync
+    # tlst is at 8053F200 according to ASM code in MyMusic.asm, exact same structure as tlst.
 
     # TODO: support volume? use percentage of current volume?
+
+    # TODO: Support victory themes and stop at GAME or TIME (using frames remaining / stock counts), restart song on sudden death
+
+    # TODO: Switch menu tracks as you enter CSS just like in game
+    # When you leave CSS (from backing out), and when you enter CSS
+    # Make optional
+
+    # TODO: Check filesize of tlst so that writing to last string won't overwrite later parts of memory not allocated for tlst
+
+
 
     # TODO: redo it in lua to be part of m-overlay?
 
     # TODO: try to write brstm stream bytes in-game?
 
     # TODO: override MyMusic?? might happen too fast, maybe would have to add a delay in assembly but then would cause desync.
+
+
 
 
