@@ -14,6 +14,7 @@ def get_config():
             "tlstMemAddress": "0x8053F200",
             "soundDir": "./sound",
             "foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe",
+            "tracklistFolder": "tracklist",
             "readFreq": 0.5, # in seconds
             "displayTrackName": True,
             "useDelay": True,

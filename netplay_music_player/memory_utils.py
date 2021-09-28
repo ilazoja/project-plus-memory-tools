@@ -47,7 +47,7 @@ def isSuddenDeath():
     return dolphin_memory_engine.read_byte(is_sudden_death_address)
 
 def isPinchStock():
-    stock_count = [-1, -1, -1, -1]
+    stock_count = [-2, -2, -2, -2]
 
     # {
     #     "watchList": [
@@ -66,30 +66,58 @@ def isPinchStock():
 
     try:
         p1_stock_address = dolphin_memory_engine.follow_pointers(int("0x80623318", 0), [int("0x44", 0)])
-        stock_count[0] = int.from_bytes(dolphin_memory_engine.read_bytes(p1_stock_address, 4), "big", signed=False)
+        stock_count[0] = dolphin_memory_engine.read_word(p1_stock_address)
     except RuntimeError:
         pass
 
     try:
         p2_stock_address = dolphin_memory_engine.follow_pointers(int("0x8062355C", 0), [int("0x44", 0)])
-        stock_count[1] = int.from_bytes(dolphin_memory_engine.read_bytes(p2_stock_address, 4), "big", signed=False)
+        stock_count[1] = dolphin_memory_engine.read_word(p2_stock_address)
     except RuntimeError:
         pass
 
     try:
         p3_stock_address = dolphin_memory_engine.follow_pointers(int("0x806237A0", 0), [int("0x44", 0)])
-        stock_count[2] = int.from_bytes(dolphin_memory_engine.read_bytes(p3_stock_address, 4), "big", signed=False)
+        stock_count[2] = dolphin_memory_engine.read_word(p3_stock_address)
     except RuntimeError:
         pass
 
     try:
         p4_stock_address = dolphin_memory_engine.follow_pointers(int("0x806239E4", 0), [int("0x44", 0)])
-        stock_count[3] = int.from_bytes(dolphin_memory_engine.read_bytes(p4_stock_address, 4), "big", signed=False)
+        stock_count[3] = dolphin_memory_engine.read_word(p4_stock_address)
     except RuntimeError:
         pass
 
     return (sum(s > 0 for s in stock_count) == 2) and (sum(s == 1 for s in stock_count) > 0) # if 2 players left and at least 1 player has only 1 stock remaining
-    ## can maybe use to detect end of GAME
+
+def get_num_players():
+    stock_count = [-2, -2, -2, -2]
+
+    try:
+        p1_stock_address = dolphin_memory_engine.follow_pointers(int("0x80623318", 0), [int("0x44", 0)])
+        stock_count[0] = dolphin_memory_engine.read_word(p1_stock_address)
+    except RuntimeError:
+        pass
+
+    try:
+        p2_stock_address = dolphin_memory_engine.follow_pointers(int("0x8062355C", 0), [int("0x44", 0)])
+        stock_count[1] = dolphin_memory_engine.read_word(p2_stock_address)
+    except RuntimeError:
+        pass
+
+    try:
+        p3_stock_address = dolphin_memory_engine.follow_pointers(int("0x806237A0", 0), [int("0x44", 0)])
+        stock_count[2] = dolphin_memory_engine.read_word(p3_stock_address)
+    except RuntimeError:
+        pass
+
+    try:
+        p4_stock_address = dolphin_memory_engine.follow_pointers(int("0x806239E4", 0), [int("0x44", 0)])
+        stock_count[3] = dolphin_memory_engine.read_word(p4_stock_address)
+    except RuntimeError:
+        pass
+
+    return sum((s > 0 or s == -1) for s in stock_count)
 
 def isPinchTime(song_switch):
 
@@ -130,12 +158,31 @@ def isPinchTime(song_switch):
                                                                          [int("0x4", 0), int("0x54", 0),
                                                                           int("0xE0", 0)])
         frames_remaining = dolphin_memory_engine.read_word(frames_remaining_address)
-        return frames_remaining != 0 and frames_remaining <= song_switch # if time is enabled and frames remaining is less than song_switch time
+        return frames_remaining <= song_switch # if time is enabled and frames remaining is less than song_switch time
         ## Should use frame remaining to end song at TIME
     except RuntimeError:
         pass
 
     return False
+
+def get_frames_remaining():
+    try:
+        frames_remaining_address = dolphin_memory_engine.follow_pointers(int("0x805A0060", 0),
+                                                                         [int("0x4", 0), int("0x54", 0),
+                                                                          int("0xE0", 0)])
+        frames_remaining = dolphin_memory_engine.read_word(frames_remaining_address)
+        return frames_remaining
+    except RuntimeError:
+        return 0
+
+def get_frames_into_current_game():
+    return dolphin_memory_engine.read_word(int("0x8062B420", 0))
+
+def get_stage_id():
+    return dolphin_memory_engine.read_word(int("0x8062B3B4", 0))
+
+def isEndOfGame():
+    return dolphin_memory_engine.read_byte(int("0x804953B0", 0))
 
 if __name__ == '__main__':
 
@@ -200,4 +247,6 @@ if __name__ == '__main__':
 
 
 ## Selecting Wild/Super Sudden Death/Bomb Rain should pinch even the menu
+
+# TODO: Stamina
 

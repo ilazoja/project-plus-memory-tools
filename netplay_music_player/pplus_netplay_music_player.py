@@ -8,12 +8,21 @@ import random
 import glob
 import subprocess
 import atexit
+from enum import Enum
 
 import dolphin_memory_engine
 from pynput import keyboard
 import time
 
 from utils import BRAWL_BRSTM_DICT, get_config
+from memory_utils import *
+
+class PlayStatus(Enum):
+    STOPPED = 0
+    STAGE_LOADED = 1
+    PLAYING = 2
+    PINCH = 3
+    GAME_ENDED = 4
 
 class TLSTEntryNode:
 
@@ -32,10 +41,10 @@ class TLSTEntryNode:
         self.name = b''
         self.filepath = ""
 
-def pick_song(tlst_name, sound_dir):
+def pick_song(tlst_name, sound_dir, tracklist_folder):
     # parse tlst and pick songs based on frequencies and if song is present
 
-    with open(os.path.join(sound_dir, "tracklist", tlst_name + ".tlst"), "rb") as f:
+    with open(os.path.join(sound_dir, tracklist_folder, tlst_name + ".tlst"), "rb") as f:
 
         ## Read header
         f.seek(6)
@@ -120,8 +129,6 @@ def cleanup(foobar_path):
 if __name__ == '__main__':
     config = get_config()
 
-    prev_rel_name = ""
-    done = False
     print("Welcome to the (Unofficial) P+ Netplay Music Player! (press ` to exit at any time)")
     print("")
 
@@ -140,10 +147,10 @@ if __name__ == '__main__':
     print("foobar2000 installation detected. Ensure to install the vgmstream plugin on foobar2000 if you haven't yet in order to play brstms.")
     print("Also ensure to select 'Loop forever' in File->Preferences->Playback->Decoding->vgmstream")
     print("")
-    if not os.path.isdir(os.path.join(config["soundDir"], "tracklist")) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
+    if not os.path.isdir(os.path.join(config["soundDir"], config["tracklistFolder"])) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
         print("Error: sound folder given in config is invalid")
         print("Please set soundDir in config.json to a your custom sound folder containing a tracklist subfolder (containing tlsts) and a strm subfolder (containing music files). The sound folder from P+ can be used to start with")
-        while not os.path.isdir(os.path.join(config["soundDir"], "tracklist")) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
+        while not os.path.isdir(os.path.join(config["soundDir"], config["tracklistFolder"])) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
             config = get_config()
             with keyboard.Events() as events:
                 event = events.get(1)
@@ -155,11 +162,22 @@ if __name__ == '__main__':
 
     atexit.register(cleanup, config["foobarPath"])
     subprocess.Popen([config["foobarPath"]])
+    time.sleep(1)
+    subprocess.Popen([config["foobarPath"], "/stop"])
+    subprocess.Popen([config["foobarPath"], "/command:Clear"])
     #subprocess.Popen([config["foobarPath"], "/command:New Playlist"])
     #subprocess.Popen([config["foobarPath"], "/hide"]) # doesn't stay hidden
 
     min_song_switch_time = 1.5
+    chosen_song_entry = None
+    song_filepaths = []
+    use_pinch = False
+    play_status = PlayStatus.STOPPED
+    prev_rel_name = ""
+    prev_stage_name = ""
+    prev_stage_id = -1
     last_played_timestamp = time.time()
+    done = False
 
     print("")
     print("To begin, please start P+ Netplay (reminder to check 'Client Side Music Off' to turn off in game music). Use left/right arrows to adjust volume")
@@ -177,17 +195,26 @@ if __name__ == '__main__':
                     stex_size = int.from_bytes(stex_bytes[8:12], "big", signed=False)
                     rel_name_offset = stex_bytes[32:36]   #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"],0) + 32, 4)
                     rel_name_offset = 0 if rel_name_offset == b'\xff\xff\xff\xff' else int.from_bytes(rel_name_offset, "big", signed=False)
-                    current_rel_name = stex_bytes[stex_string_start_offset + rel_name_offset:stex_string_start_offset + rel_name_offset + stex_size - rel_name_offset - stex_string_start_offset]  #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset + rel_name_offset, stex_size - rel_name_offset - stex_string_start_offset )
+                    current_rel_name = stex_bytes[stex_string_start_offset + rel_name_offset:stex_string_start_offset + rel_name_offset + stex_size - rel_name_offset - stex_string_start_offset - 1]  #dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset + rel_name_offset, stex_size - rel_name_offset - stex_string_start_offset )
                     #print(current_tlst_bytes)
-                    if (prev_rel_name != current_rel_name): # if rel name changed, that means stage changed
-                        stage_name_offset = int.from_bytes(stex_bytes[28:32], "big", signed=False) #int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
+                    stage_name_offset = int.from_bytes(stex_bytes[28:32], "big", signed=False)  # int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
+                    current_stage_name = str(stex_bytes[stex_string_start_offset + stage_name_offset:stex_string_start_offset + rel_name_offset - 1], 'utf-8')
+                    if (prev_rel_name != current_rel_name or prev_stage_name != current_stage_name): # if rel name changed, that means stage changed
                         current_tlst_name = str(stex_bytes[stex_string_start_offset:stex_string_start_offset + stage_name_offset - 1], 'utf-8')#str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset, stage_name_offset - 1), 'utf-8')
 
                         print(f"Current tlst: {current_tlst_name}")
-                        if os.path.isfile(os.path.join(config["soundDir"], "tracklist", current_tlst_name + ".tlst")):
-                            chosen_song_entry = pick_song(current_tlst_name, config["soundDir"])
+                        if os.path.isfile(os.path.join(config["soundDir"], config["tracklistFolder"], current_tlst_name + ".tlst")):
+                            chosen_song_entry = pick_song(current_tlst_name, config["soundDir"], config["tracklistFolder"])
                             song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song_entry.filepath)) + ".*")
                             if len(song_filepaths):
+                                subprocess.Popen([config["foobarPath"], "/stop"])
+                                #subprocess.Popen([config["foobarPath"], "/command:Clear"]) # only will clear on focus
+                                #subprocess.Popen([config["foobarPath"], "/add", "/immediate", song_filepaths[0]])
+                                print(f"Now playing: {str(chosen_song_entry.name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
+                                play_status = play_status.STOPPED
+                                use_pinch = False
+                                num_players = -1
+
                                 if (config["displayTrackName"]):
                                     # Hijack each tlst entries' trackname offset in memory to point to the last tlst entry's trackname string
                                     # Then overwrite the last entry's trackname string
@@ -208,37 +235,98 @@ if __name__ == '__main__':
                                     dolphin_memory_engine.write_bytes(
                                         int(config["tlstMemAddress"], 0) + string_start_offset + last_string_offset, chosen_song_entry.name + b"\00")
 
-                                subprocess.Popen([config["foobarPath"], "/stop"])
-                                subprocess.Popen([config["foobarPath"], "/command:Clear"])
-                                print(f"Now playing: {str(chosen_song_entry.name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
-
-                                current_timestamp = time.time()
-
-                                # play song (delay if there is a set delay)
-                                if chosen_song_entry.song_delay == -1 and config['useDelay']: # start song at end of countdown  # TODO: should use Frames Into Current Game instead
-                                    time.sleep(3)  # assume no lag (takes around 3 seconds from start to end of countdown)
-                                elif chosen_song_entry.song_delay <= 0 or not config['useDelay']:
-                                    if (current_timestamp - last_played_timestamp < min_song_switch_time):
-                                        time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together)
-                                    else:
-                                        time.sleep(0.1) # minimum delay otherwise commands happen too fast and added song will start stopped
-                                else: # start song after desired number of frames
-                                    if (chosen_song_entry.song_delay/60 < min_song_switch_time) and (current_timestamp - last_played_timestamp < min_song_switch_time):
-                                        time.sleep(min_song_switch_time - (current_timestamp - last_played_timestamp)) # delay for switching songs (otherwise songs will get added together
-                                    else:
-                                        # TODO: Don't use sleep but instead put in loop, otherwise song could switch during delay if delay is long
-                                        time.sleep(max(0.1, chosen_song_entry.song_delay / 60))  # song_delay is in frames, Brawl runs 60fps, assume no lag. TODO: Use current frames
-
-                                subprocess.Popen([config["foobarPath"], song_filepaths[0]])
-
-                                last_played_timestamp = current_timestamp
+                                time.sleep(0.1) # neccessary to prevent stop and start occurring simultaneously causing song to be added and then stopped
 
                         prev_rel_name = current_rel_name
+                        prev_stage_name = current_stage_name
+
+                    frames_into_current_game = get_frames_into_current_game()
+                    if num_players == -1 and frames_into_current_game > 0:
+                        num_players = get_num_players()
+                    if not use_pinch:
+                        pinch_song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song_entry.filepath + "_b")) + ".*")
+                        if len(pinch_song_filepaths):
+                            if isSuperSuddenDeath() or isBombRain() or isWildBrawl() or isSuddenDeath():
+                                print("PINCH")
+                                use_pinch = True
+                                song_filepaths = pinch_song_filepaths
+                            elif chosen_song_entry and chosen_song_entry.song_switch and frames_into_current_game > 0: # did match start (i.e. frames into match > 0)
+                                if isPinchTime(chosen_song_entry.song_switch):
+                                    print("PINCH")
+                                    use_pinch = True
+                                    song_filepaths = pinch_song_filepaths
+                                elif not chosen_song_entry.disable_stock_pinch and isPinchStock():
+                                    print("PINCH")
+                                    use_pinch = True
+                                    song_filepaths = pinch_song_filepaths
+
+
+
+                    # TODO: don't play results song if No Contest, detect if results, detect winner and play theme until duration of song (if it's not a looping song) then switch to results song
+                    stage_id = get_stage_id()
+                    current_timestamp = time.time()
+                    if play_status == PlayStatus.STOPPED:
+                        if (stage_id != 255 and stage_id != prev_stage_id) or current_rel_name == b'st_config.rel': # Check if stage loaded or menu loaded
+                            play_status = PlayStatus.STAGE_LOADED
+                            prev_stage_id = stage_id
+                            stage_loaded_timestamp = time.time()
+                    if play_status == PlayStatus.STAGE_LOADED:
+                        # play song (delay if there is a set delay)
+                        if isEndOfGame():
+                            play_status = PlayStatus.GAME_ENDED
+                        elif use_pinch or not config['useDelay'] or chosen_song_entry.song_delay != -1:
+                            if (current_timestamp - last_played_timestamp >= min_song_switch_time) and (use_pinch or current_timestamp - stage_loaded_timestamp >= chosen_song_entry.song_delay / 60):
+                                # delay for switching songs otherwise songs will get added together as well as song delay to delay after match is staarted, song_delay is in frames, Brawl runs 60fps, assume no lag.
+                                subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
+                                play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
+                                last_played_timestamp = current_timestamp
+                                prev_stage_id = stage_id
+                        elif chosen_song_entry.song_delay == -1:  # start song at end of countdown
+                            if frames_into_current_game > 0: # if Frames Into Current Game is greater than 0 i.e. game started
+                                subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]]) #"/next"])
+                                play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
+                                last_played_timestamp = current_timestamp
+                                prev_stage_id = stage_id
+                    if play_status == play_status.PLAYING:
+                        # if current_timestamp - last_played_timestamp >= min_song_switch_time and isSuddenDeath():
+                        #     subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
+                        #     play_status = PlayStatus.SUDDEN_DEATH
+                        #     last_played_timestamp = current_timestamp
+                        if isEndOfGame(): # detect end of game
+                            subprocess.Popen([config["foobarPath"], "/stop"])
+                            play_status = PlayStatus.GAME_ENDED
+                            time.sleep(0.1)
+                        elif (current_timestamp - last_played_timestamp >= min_song_switch_time and use_pinch):
+                            subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
+                            play_status = PlayStatus.PINCH
+                            last_played_timestamp = current_timestamp
+                    if play_status == play_status.PINCH:
+                        # if current_timestamp - last_played_timestamp >= min_song_switch_time and isSuddenDeath():
+                        #     subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
+                        #     play_status = PlayStatus.SUDDEN_DEATH
+                        #     last_played_timestamp = current_timestamp
+                        if isEndOfGame():  # detect end of game
+                            subprocess.Popen([config["foobarPath"], "/stop"])
+                            play_status = PlayStatus.GAME_ENDED
+                            time.sleep(0.1)
+                    # if play_status == PlayStatus.SUDDEN_DEATH:
+                    #     if isEndOfGame():  # detect end of game
+                    #         subprocess.Popen([config["foobarPath"], "/stop"])
+                    #         time.sleep(0.1)
+                    if play_status == PlayStatus.GAME_ENDED:
+                        if current_timestamp - last_played_timestamp >= min_song_switch_time and (not isEndOfGame() and num_players == get_num_players()):
+                            subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]]) # "/next"])
+                            play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
+                            last_played_timestamp = current_timestamp
+
 
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
                 subprocess.Popen([config["foobarPath"], "/stop"])
+                prev_stage_id = -1
+                play_status = play_status.STOPPED
                 prev_rel_name = ""
+                prev_stage_name = ""
                 print("Unhooked to Dolphin")
 
 
@@ -274,6 +362,7 @@ if __name__ == '__main__':
     # TODO: Support stage params so new tlsts can be added
     # Use stageid, but might have to figure out which out which button combo was picked (maybe determine by .pac, only limitation would be if two alts share the saame.pac)
     # if param / stage id doesn't exist then use tlst name loaded in game
+    # Problem is that when the stage id changes, perhaps track name would already be loaded
 
     # TODO: Cross platform (py-dme doesn't support mac however) (also need to consider controls)
 
@@ -283,6 +372,7 @@ if __name__ == '__main__':
     # TODO: support volume? use percentage of current volume?
 
     # TODO: Support victory themes and stop at GAME or TIME (using frames remaining / stock counts), restart song on sudden death
+    # Find using Song ID
 
     # TODO: Switch menu tracks as you enter CSS just like in game
     # When you leave CSS (from backing out), and when you enter CSS
@@ -290,6 +380,7 @@ if __name__ == '__main__':
 
     # TODO: Check filesize of tlst so that writing to last string won't overwrite later parts of memory not allocated for tlst
 
+    # TODO: Handle edge cases like single player modes where tlst doesn't get loaded e.g. Master Hand. Check if song id changes while tlst doesn't change
 
 
     # TODO: redo it in lua to be part of m-overlay?
@@ -297,6 +388,8 @@ if __name__ == '__main__':
     # TODO: try to write brstm stream bytes in-game?
 
     # TODO: override MyMusic?? might happen too fast, maybe would have to add a delay in assembly but then would cause desync.
+
+
 
 
 
