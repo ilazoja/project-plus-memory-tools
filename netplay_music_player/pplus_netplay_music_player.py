@@ -14,7 +14,7 @@ import dolphin_memory_engine
 from pynput import keyboard
 import time
 
-from utils import BRAWL_BRSTM_DICT, get_config
+from utils import CONFIG_JSON, BRAWL_BRSTM_DICT, get_config
 from memory_utils import *
 
 class PlayStatus(Enum):
@@ -145,11 +145,11 @@ if __name__ == '__main__':
                     sys.exit()
 
     print("foobar2000 installation detected. Ensure to install the vgmstream plugin on foobar2000 if you haven't yet in order to play brstms.")
-    print("Also ensure to select 'Loop forever' in File->Preferences->Playback->Decoding->vgmstream")
+    print("Also ensure to select 'Loop forever' in File->Preferences->Playback->Decoding->vgmstream and uncheck 'Bring to front when adding new files' in File->Preferences->Shell Integration")
     print("")
     if not os.path.isdir(os.path.join(config["soundDir"], config["tracklistFolder"])) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
         print("Error: sound folder given in config is invalid")
-        print("Please set soundDir in config.json to a your custom sound folder containing a tracklist subfolder (containing tlsts) and a strm subfolder (containing music files). The sound folder from P+ can be used to start with")
+        print(f"Please set soundDir in {CONFIG_JSON} to a your custom sound folder containing a tracklist subfolder (containing tlsts) and a strm subfolder (containing music files). The sound folder from P+ can be used to start with")
         while not os.path.isdir(os.path.join(config["soundDir"], config["tracklistFolder"])) and not os.path.isdir(os.path.join(config["soundDir"], "strm")):
             config = get_config()
             with keyboard.Events() as events:

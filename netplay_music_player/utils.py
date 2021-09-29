@@ -1,7 +1,7 @@
 import json
 import os
 
-CONFIG_JSON = "config.json"
+CONFIG_JSON = "PPlusNetplayMusicPlayer.json"
 
 def get_config():
     if os.path.exists(CONFIG_JSON):
