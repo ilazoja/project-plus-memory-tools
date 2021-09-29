@@ -260,14 +260,14 @@ if __name__ == '__main__':
                         prev_stock_count = stock_count
 
                     ## Detect pinch
-                    if not use_pinch:
+                    if not use_pinch and chosen_song_entry.song_switch:
                         pinch_song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song_entry.filepath + "_b")) + ".*")
                         if len(pinch_song_filepaths):
                             if isSuperSuddenDeath() or isBombRain() or isWildBrawl() or isSuddenDeath():
                                 print("PINCH")
                                 use_pinch = True
                                 song_filepaths = pinch_song_filepaths
-                            elif chosen_song_entry and chosen_song_entry.song_switch and frames_into_current_game > 0: # did match start (i.e. frames into match > 0)
+                            elif chosen_song_entry and frames_into_current_game > 0: # did match start (i.e. frames into match > 0)
                                 if isPinchTime(chosen_song_entry.song_switch):
                                     print("PINCH")
                                     use_pinch = True
@@ -276,8 +276,6 @@ if __name__ == '__main__':
                                     print("PINCH")
                                     use_pinch = True
                                     song_filepaths = pinch_song_filepaths
-
-
 
                     # TODO: don't play results song if No Contest, detect if results, detect winner and play theme until duration of song (if it's not a looping song) then switch to results song
 
