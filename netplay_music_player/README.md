@@ -31,7 +31,7 @@ Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adju
 
 The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
 
-The name of the track will be updated in game. From testing this does not desync netplay (although sometimes there will be a warning that a desync occurred), however if you're worried about desyncs, set **displayTrackName** in PPlusNetplayMusicPlayer.json to _false_
+The name of the track will be updated in game. From testing this does not desync netplay (although sometimes there will be a warning that a possible desync occurred), however if you're worried about desyncs, set **displayTrackName** in PPlusNetplayMusicPlayer.json to _false_
 
 ***
 # Future Plans
