@@ -4,27 +4,38 @@ import time
 import dolphin_memory_engine
 from utils import get_config
 
+# Referenced CSE.asm [Dantarion, PyotrLuzhin, DukeItOut] in Project+ to replicate pinch functionality, also used All_Data_DME_file.dmw [Eon] for DME for some memory addresses
+
 def isSuperSuddenDeath():
     #  lis r12, 0x9018				# \
     # lbz r0, -0xC88(r12)			# | Super Sudden Death automatically makes the pinch song play!
     # cmpwi r0, 1					# |
     # beq startWithPinch			# /
 
-    return dolphin_memory_engine.read_byte(int("0x9017f378", 0)) # hex(int("0x90180000", 0) - int("0xC88", 0))
+    return dolphin_memory_engine.read_byte(int("0x9017f378", 0)) == 1 # hex(int("0x90180000", 0) - int("0xC88", 0))
+
+def isStamina():
+    # checkStamina:
+    # 	lis r12, 0x9018				# \
+    # 	lbz r12, -0xC88(r12)		# | Stamina mode has another prerequisite: the player being under 100HP!
+    # 	cmpwi r12, 2				# |
+    # 	bne+ not_stamina			# /
+
+    return dolphin_memory_engine.read_byte(int("0x9017f378", 0)) == 2 # hex(int("0x90180000", 0) - int("0xC88", 0))
 
 def isWildBrawl():
     #   lbz r0, -0xC82(r12)    		# \
     #   cmpwi r0, 1        			# | The above also applies to Wild Brawl
     #   beq startWithPinch        	# /
 
-    return dolphin_memory_engine.read_byte(int("0x9017f37e", 0))  # hex(int("0x90180000", 0) - int("0xC82", 0))
+    return dolphin_memory_engine.read_byte(int("0x9017f37e", 0)) == 1  # hex(int("0x90180000", 0) - int("0xC82", 0))
 
 def isBombRain():
     #   lbz r0, -0xC81(r12)			# \
     #   cmpwi r0, 1					# | As well as Bomb Rain Mode
     #   bne doNotForce				# /
 
-    return dolphin_memory_engine.read_byte(int("0x9017f37f", 0))  # hex(int("0x90180000", 0) - int("0xC81", 0))
+    return dolphin_memory_engine.read_byte(int("0x9017f37f", 0)) == 1  # hex(int("0x90180000", 0) - int("0xC81", 0))
 
 def isSuddenDeath():
     #   lis r12, 0x805A				# \
@@ -46,7 +57,50 @@ def isSuddenDeath():
 
     return dolphin_memory_engine.read_byte(is_sudden_death_address)
 
-def isPinchStock():
+def isPinchStock(stock_count, last_stock_loss_frame, frames_into_current_game):
+
+    min_frames_since_last_stock = 60
+
+    if sum(s > 0 for s in stock_count) == 2:
+
+        is_stamina = isStamina()
+
+        # stamina:
+        # 	lis r3, 0x805A				# \
+        # 	lwz r3, 0x60(r3)			# |
+        # 	lwz r3, 0x4(r3)				# |
+        # 	lwz r3, 0x68(r3)			# | Get the stamina health for this port.
+        # 	mulli r4, r6, 4				# |
+        # 	addi r4, r4, 0xD0			# |
+        # 	lwzx r3, r3, r4				# |
+        # 	cmpwi r3, 100				# |
+        # 	bge+ notBelow100HP			# /
+        # not_stamina:
+        # 	addi r7, r7, 1				# Increment count of amount of players at 1 stock, currently.
+        # notOneStock:
+        # notBelow100HP:
+        # 	addi r6, r6, 1				# \
+        # 	cmpwi r6, 4					# | Do the loop for all four ports
+        #   blt stockCheckLoop			# /
+        for player_num, (player_stocks, player_last_stock_loss_frame) in enumerate(zip(stock_count, last_stock_loss_frame)):
+            if player_stocks == 1:
+
+                if is_stamina: # need buffer period otherwise will use percent from previous stock
+                    if frames_into_current_game - player_last_stock_loss_frame >= min_frames_since_last_stock:
+                        stamina_address = dolphin_memory_engine.follow_pointers(int("0x805A0060", 0),
+                                                                                         [int("0x4", 0), int("0x68", 0)])
+                        stamina_address = dolphin_memory_engine.read_word(stamina_address)
+                        stamina = dolphin_memory_engine.read_word(4 * player_num + int("0xD0", 0) + stamina_address)
+                        if stamina <= 100:
+                            return True
+                else:
+                    return True
+
+    #return (sum(s > 0 for s in stock_count) == 2) and (sum(s == 1 for s in stock_count) > 0) # if 2 players left and at least 1 player has only 1 stock remaining
+
+    return False
+
+def get_stock_count():
     stock_count = [-2, -2, -2, -2]
 
     # {
@@ -88,36 +142,7 @@ def isPinchStock():
     except RuntimeError:
         pass
 
-    return (sum(s > 0 for s in stock_count) == 2) and (sum(s == 1 for s in stock_count) > 0) # if 2 players left and at least 1 player has only 1 stock remaining
-
-def get_num_players():
-    stock_count = [-2, -2, -2, -2]
-
-    try:
-        p1_stock_address = dolphin_memory_engine.follow_pointers(int("0x80623318", 0), [int("0x44", 0)])
-        stock_count[0] = dolphin_memory_engine.read_word(p1_stock_address)
-    except RuntimeError:
-        pass
-
-    try:
-        p2_stock_address = dolphin_memory_engine.follow_pointers(int("0x8062355C", 0), [int("0x44", 0)])
-        stock_count[1] = dolphin_memory_engine.read_word(p2_stock_address)
-    except RuntimeError:
-        pass
-
-    try:
-        p3_stock_address = dolphin_memory_engine.follow_pointers(int("0x806237A0", 0), [int("0x44", 0)])
-        stock_count[2] = dolphin_memory_engine.read_word(p3_stock_address)
-    except RuntimeError:
-        pass
-
-    try:
-        p4_stock_address = dolphin_memory_engine.follow_pointers(int("0x806239E4", 0), [int("0x44", 0)])
-        stock_count[3] = dolphin_memory_engine.read_word(p4_stock_address)
-    except RuntimeError:
-        pass
-
-    return sum((s > 0 or s == -1) for s in stock_count)
+    return stock_count
 
 def isPinchTime(song_switch):
 
@@ -214,13 +239,6 @@ if __name__ == '__main__':
                 # Use frames into current game (should be > 0)
 
 
-
-
-
-
-
-
-
                 #print(current_bytes)
 
                 #print(curren)
@@ -239,8 +257,6 @@ if __name__ == '__main__':
 
 
 
-
-
 ## Use DME file
 
 ## 80577990 checkStockMatch
@@ -248,5 +264,4 @@ if __name__ == '__main__':
 
 ## Selecting Wild/Super Sudden Death/Bomb Rain should pinch even the menu
 
-# TODO: Stamina
 

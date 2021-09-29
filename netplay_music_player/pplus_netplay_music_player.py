@@ -214,6 +214,8 @@ if __name__ == '__main__':
                                 play_status = play_status.STOPPED
                                 use_pinch = False
                                 num_players = -1
+                                prev_stock_count = [-2, -2, -2, -2]
+                                last_stock_loss_frame = [-1, -1, -1, -1]
 
                                 if (config["displayTrackName"]):
                                     # Hijack each tlst entries' trackname offset in memory to point to the last tlst entry's trackname string
@@ -232,8 +234,14 @@ if __name__ == '__main__':
                                         dolphin_memory_engine.write_bytes(int(config["tlstMemAddress"], 0) + 6 + i * 16,
                                                                           last_string_offset_bytes)
 
+                                    # shorten just in case title goes over memory limit for tlst
+                                    if string_start_offset + last_string_offset + len(chosen_song_entry.name) < 3920:
+                                        song_name = chosen_song_entry.name[0:3920 - string_start_offset - last_string_offset - len(chosen_song_entry.name)]
+                                    else:
+                                        song_name = b''
+
                                     dolphin_memory_engine.write_bytes(
-                                        int(config["tlstMemAddress"], 0) + string_start_offset + last_string_offset, chosen_song_entry.name + b"\00")
+                                        int(config["tlstMemAddress"], 0) + string_start_offset + last_string_offset, song_name + b"\00")
 
                                 time.sleep(0.1) # neccessary to prevent stop and start occurring simultaneously causing song to be added and then stopped
 
@@ -241,8 +249,17 @@ if __name__ == '__main__':
                         prev_stage_name = current_stage_name
 
                     frames_into_current_game = get_frames_into_current_game()
-                    if num_players == -1 and frames_into_current_game > 0:
-                        num_players = get_num_players()
+                    if frames_into_current_game > 0:
+                        stock_count = get_stock_count()
+                        if num_players == -1:
+                            num_players = sum((s > 0 or s == -1) for s in stock_count)
+                        for player_num, (prev_player_stocks, player_stocks) in enumerate(zip(prev_stock_count, stock_count)):
+                            if player_stocks < prev_player_stocks:
+                                last_stock_loss_frame[player_num] = frames_into_current_game
+
+                        prev_stock_count = stock_count
+
+                    ## Detect pinch
                     if not use_pinch:
                         pinch_song_filepaths = glob.glob(glob.escape(os.path.join(config["soundDir"], "strm", chosen_song_entry.filepath + "_b")) + ".*")
                         if len(pinch_song_filepaths):
@@ -255,7 +272,7 @@ if __name__ == '__main__':
                                     print("PINCH")
                                     use_pinch = True
                                     song_filepaths = pinch_song_filepaths
-                                elif not chosen_song_entry.disable_stock_pinch and isPinchStock():
+                                elif not chosen_song_entry.disable_stock_pinch and isPinchStock(stock_count, last_stock_loss_frame, frames_into_current_game):
                                     print("PINCH")
                                     use_pinch = True
                                     song_filepaths = pinch_song_filepaths
@@ -263,6 +280,8 @@ if __name__ == '__main__':
 
 
                     # TODO: don't play results song if No Contest, detect if results, detect winner and play theme until duration of song (if it's not a looping song) then switch to results song
+
+                    ## FSM to keep track of music playing / game state
                     stage_id = get_stage_id()
                     current_timestamp = time.time()
                     if play_status == PlayStatus.STOPPED:
@@ -292,7 +311,7 @@ if __name__ == '__main__':
                         #     subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
                         #     play_status = PlayStatus.SUDDEN_DEATH
                         #     last_played_timestamp = current_timestamp
-                        if isEndOfGame(): # detect end of game
+                        if isEndOfGame() and not isStamina(): # detect end of game
                             subprocess.Popen([config["foobarPath"], "/stop"])
                             play_status = PlayStatus.GAME_ENDED
                             time.sleep(0.1)
@@ -305,7 +324,7 @@ if __name__ == '__main__':
                         #     subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
                         #     play_status = PlayStatus.SUDDEN_DEATH
                         #     last_played_timestamp = current_timestamp
-                        if isEndOfGame():  # detect end of game
+                        if isEndOfGame() and not isStamina():  # detect end of game
                             subprocess.Popen([config["foobarPath"], "/stop"])
                             play_status = PlayStatus.GAME_ENDED
                             time.sleep(0.1)
@@ -314,7 +333,8 @@ if __name__ == '__main__':
                     #         subprocess.Popen([config["foobarPath"], "/stop"])
                     #         time.sleep(0.1)
                     if play_status == PlayStatus.GAME_ENDED:
-                        if current_timestamp - last_played_timestamp >= min_song_switch_time and (not isEndOfGame() and num_players == get_num_players()):
+                        current_num_players_remaining = sum((s > 0 or s == -1) for s in stock_count)
+                        if current_timestamp - last_played_timestamp >= min_song_switch_time and (not isEndOfGame() and num_players == current_num_players_remaining):
                             subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]]) # "/next"])
                             play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
                             last_played_timestamp = current_timestamp
@@ -354,7 +374,7 @@ if __name__ == '__main__':
 
     # TODO: Switch to dedicated playlist (to avoid overwriting other active playlists)
 
-    # TODO: support pinch
+    ## Supports pinch
     # at mem address 805A7B18 shows song currently playing, check if song changes. Won't work, pinch might be select by tlst outside, not every tlst in game has a pinch
     # or check pinch asm to see what addresses to look for in requirements
     # check DME address file
@@ -377,8 +397,6 @@ if __name__ == '__main__':
     # TODO: Switch menu tracks as you enter CSS just like in game
     # When you leave CSS (from backing out), and when you enter CSS
     # Make optional
-
-    # TODO: Check filesize of tlst so that writing to last string won't overwrite later parts of memory not allocated for tlst
 
     # TODO: Handle edge cases like single player modes where tlst doesn't get loaded e.g. Master Hand. Check if song id changes while tlst doesn't change
 
