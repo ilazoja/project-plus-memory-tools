@@ -27,7 +27,7 @@ pplus_netplay_music_player.py
 
 If foobar2000 is installed and the P+ sound folder is found, then it will hook onto P+ Dolphin as soon as the game loads. On the P+ Netplay window, check 'Client Side Music Off' to turn off in game music.
 
-Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adjust volume in game). Press Q at any time to quit the application
+Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adjust volume in game). Press ` at any time to quit the application
 
 The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
 
