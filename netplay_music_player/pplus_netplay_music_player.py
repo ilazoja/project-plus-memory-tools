@@ -307,11 +307,7 @@ if __name__ == '__main__':
                                 last_played_timestamp = current_timestamp
                                 prev_stage_id = stage_id
                     if play_status == play_status.PLAYING:
-                        # if current_timestamp - last_played_timestamp >= min_song_switch_time and isSuddenDeath():
-                        #     subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
-                        #     play_status = PlayStatus.SUDDEN_DEATH
-                        #     last_played_timestamp = current_timestamp
-                        if isEndOfGame() and not isStamina(): # detect end of game
+                        if isEndOfGame() and not isStamina(): # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
                             subprocess.Popen([config["foobarPath"], "/stop"])
                             play_status = PlayStatus.GAME_ENDED
                             time.sleep(0.1)
@@ -320,18 +316,10 @@ if __name__ == '__main__':
                             play_status = PlayStatus.PINCH
                             last_played_timestamp = current_timestamp
                     if play_status == play_status.PINCH:
-                        # if current_timestamp - last_played_timestamp >= min_song_switch_time and isSuddenDeath():
-                        #     subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
-                        #     play_status = PlayStatus.SUDDEN_DEATH
-                        #     last_played_timestamp = current_timestamp
-                        if isEndOfGame() and not isStamina():  # detect end of game
+                        if isEndOfGame() and not isStamina():  # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
                             subprocess.Popen([config["foobarPath"], "/stop"])
                             play_status = PlayStatus.GAME_ENDED
                             time.sleep(0.1)
-                    # if play_status == PlayStatus.SUDDEN_DEATH:
-                    #     if isEndOfGame():  # detect end of game
-                    #         subprocess.Popen([config["foobarPath"], "/stop"])
-                    #         time.sleep(0.1)
                     if play_status == PlayStatus.GAME_ENDED:
                         current_num_players_remaining = sum((s > 0 or s == -1) for s in stock_count)
                         if current_timestamp - last_played_timestamp >= min_song_switch_time and (not isEndOfGame() and num_players == current_num_players_remaining):
@@ -391,7 +379,7 @@ if __name__ == '__main__':
 
     # TODO: support volume? use percentage of current volume?
 
-    # TODO: Support victory themes and stop at GAME or TIME (using frames remaining / stock counts), restart song on sudden death
+    # TODO: Support victory themes
     # Find using Song ID
 
     # TODO: Switch menu tracks as you enter CSS just like in game
