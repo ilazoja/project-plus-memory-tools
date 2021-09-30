@@ -175,7 +175,7 @@ if __name__ == '__main__':
     play_status = PlayStatus.STOPPED
     prev_rel_name = ""
     prev_stage_name = ""
-    prev_stage_id = -1
+    prev_frames_into_current_game = 0
     last_played_timestamp = time.time()
     done = False
 
@@ -199,7 +199,9 @@ if __name__ == '__main__':
                     #print(current_tlst_bytes)
                     stage_name_offset = int.from_bytes(stex_bytes[28:32], "big", signed=False)  # int.from_bytes(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + 28, 4), "big", signed=False)
                     current_stage_name = str(stex_bytes[stex_string_start_offset + stage_name_offset:stex_string_start_offset + rel_name_offset - 1], 'utf-8')
-                    if (prev_rel_name != current_rel_name or prev_stage_name != current_stage_name): # if rel name changed, that means stage changed
+                    frames_into_current_game = get_frames_into_current_game()
+                    stage_id = get_stage_id()
+                    if (prev_rel_name != current_rel_name or prev_stage_name != current_stage_name or frames_into_current_game < prev_frames_into_current_game): # if rel name changed, that means stage changed
                         current_tlst_name = str(stex_bytes[stex_string_start_offset:stex_string_start_offset + stage_name_offset - 1], 'utf-8')#str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset, stage_name_offset - 1), 'utf-8')
 
                         print(f"Current tlst: {current_tlst_name}")
@@ -210,7 +212,6 @@ if __name__ == '__main__':
                                 subprocess.Popen([config["foobarPath"], "/stop"])
                                 #subprocess.Popen([config["foobarPath"], "/command:Clear"]) # only will clear on focus
                                 #subprocess.Popen([config["foobarPath"], "/add", "/immediate", song_filepaths[0]])
-                                print(f"Now playing: {str(chosen_song_entry.name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
                                 play_status = play_status.STOPPED
                                 use_pinch = False
                                 num_players = -1
@@ -248,7 +249,6 @@ if __name__ == '__main__':
                         prev_rel_name = current_rel_name
                         prev_stage_name = current_stage_name
 
-                    frames_into_current_game = get_frames_into_current_game()
                     if frames_into_current_game > 0:
                         stock_count = get_stock_count()
                         if num_players == -1:
@@ -280,13 +280,12 @@ if __name__ == '__main__':
                     # TODO: don't play results song if No Contest, detect if results, detect winner and play theme until duration of song (if it's not a looping song) then switch to results song
 
                     ## FSM to keep track of music playing / game state
-                    stage_id = get_stage_id()
                     current_timestamp = time.time()
                     if play_status == PlayStatus.STOPPED:
-                        if (stage_id != 255 and stage_id != prev_stage_id) or current_rel_name == b'st_config.rel': # Check if stage loaded or menu loaded
+                        if stage_id != 255 or current_rel_name == b'st_config.rel': # Check if stage loaded or menu loaded
                             play_status = PlayStatus.STAGE_LOADED
-                            prev_stage_id = stage_id
                             stage_loaded_timestamp = time.time()
+                            print(f"Now playing: {str(chosen_song_entry.name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
                     if play_status == PlayStatus.STAGE_LOADED:
                         # play song (delay if there is a set delay)
                         if isEndOfGame():
@@ -297,13 +296,11 @@ if __name__ == '__main__':
                                 subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
                                 play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
                                 last_played_timestamp = current_timestamp
-                                prev_stage_id = stage_id
                         elif chosen_song_entry.song_delay == -1:  # start song at end of countdown
                             if frames_into_current_game > 0: # if Frames Into Current Game is greater than 0 i.e. game started
                                 subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]]) #"/next"])
                                 play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
                                 last_played_timestamp = current_timestamp
-                                prev_stage_id = stage_id
                     if play_status == play_status.PLAYING:
                         if isEndOfGame() and not isStamina(): # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
                             subprocess.Popen([config["foobarPath"], "/stop"])
@@ -325,14 +322,14 @@ if __name__ == '__main__':
                             play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
                             last_played_timestamp = current_timestamp
 
-
+                    prev_frames_into_current_game = frames_into_current_game
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
                 subprocess.Popen([config["foobarPath"], "/stop"])
-                prev_stage_id = -1
                 play_status = play_status.STOPPED
                 prev_rel_name = ""
                 prev_stage_name = ""
+                prev_frames_into_current_game = 0
                 print("Unhooked to Dolphin")
 
 
