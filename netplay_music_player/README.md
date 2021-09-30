@@ -45,7 +45,9 @@ You can set the **tracklist** folder name in PPlusNetplayMusicPlayer.json which 
 
 # Acknowledgements
 
-DukeItOut for the very robust P+ music system and tlst file format
+DukeItOut for the very robust and well documented P+ music system and tlst file format
+
+Eon for pointer/memory paths
 
 soopercool101 for tlst parsing reference from [BrawlCrate](https://github.com/soopercool101/BrawlCrate) and tlst editing
 
