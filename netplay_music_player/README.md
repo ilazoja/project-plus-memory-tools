@@ -33,7 +33,7 @@ The tracklists can be edited with BrawlCrate and foobar2000 should be able to su
 
 The name of the track will be updated in game. From testing this does not desync netplay (although sometimes there will be a warning that a possible desync occurred), however if you're worried about desyncs, set **displayTrackName** in PPlusNetplayMusicPlayer.json to _false_
 
-You can set the **tracklist** folder name in PPlusNetplayMusicPlayer.json which makes it easy to have different set of tracklists that reference the same pool of brstm, might be handy if you netplay with different builds.
+You can set the **tracklist** folder name in PPlusNetplayMusicPlayer.json which makes it easy to have different set of tracklists that reference the same pool of songs, might be handy if you netplay with different builds.
 
 ***
 # Future Plans
