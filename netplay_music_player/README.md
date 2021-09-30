@@ -15,7 +15,7 @@ pip install pynput
 
 Install [foobar2000](https://www.foobar2000.org/) and its [vgmstream plugin](https://www.foobar2000.org/components/view/foo_input_vgmstream). Once foobar2000 is installed, open it and select 'Loop forever' in File -> Preferences -> Playback -> Decoding -> vgmstream. With Preferences still open, navigate to the Shell Integration section and uncheck 'Bring to front when adding new files'.
 
-Set **soundDir** in config.json to your custom P+ sound folder (which should contain a tracklist subfolder containing .tlst files and a strm subfolder containing music files/subfolders). The sound folder from P+ can be used to start with.
+Set **soundDir** in PPlusNetplayMusicPlayer.json to your custom P+ sound folder (which should contain a tracklist subfolder containing .tlst files and a strm subfolder containing music files/subfolders). The sound folder from P+ can be used to start with.
 
 ***
 
@@ -31,7 +31,7 @@ Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adju
 
 The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
 
-The name of the track will be updated in game. From testing this does not desync netplay (although sometimes there will be a warning that a desync occurred), however if you're worried about desyncs, set **displayTrackName** in config.json to _false_
+The name of the track will be updated in game. From testing this does not desync netplay (although sometimes there will be a warning that a possible desync occurred), however if you're worried about desyncs, set **displayTrackName** in PPlusNetplayMusicPlayer.json to _false_
 
 ***
 # Future Plans
