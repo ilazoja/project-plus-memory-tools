@@ -107,7 +107,7 @@ def pick_song(tlst_name, sound_dir, tracklist_folder):
                 #tlst_entry.name = str(tlst_entry.name, 'utf-8')
                 f.read(1)
 
-    if tlst_name == "Results": # play ending results song
+    if tlst_name == "Results": # play ending results song TODO: check if it just has results in the name (or have another way to detect if it is results) since build might have results tlst named differently
         results_entry = next((x for x in tlst_entries if x.song_id == "F400"), None)
         return results_entry#.filepath, b'', 0
     else: # pick song randomly out of available brstms and based on frequency
