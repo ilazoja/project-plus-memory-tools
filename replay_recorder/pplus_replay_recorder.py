@@ -1,91 +1,87 @@
 
 import os
-import time
 import dolphin_memory_engine
 import time
 
+def record_replay():
+
+    ## TODO: Activate OBS
+
+    while (dolphin_memory_engine.read_word(int("0x8062B3B4", 0)) != 255): # while still in a match
+        pass
+
+def hold_A_until_match_started():
+    stage_id = dolphin_memory_engine.read_word(int("0x8062B3B4", 0))
+    while (stage_id >= 255 or stage_id <= 0):
+        # hold A while the game is still in the menu
+        #dolphin_memory_engine.write_bytes(int("0x805BC068",0), bytes.fromhex("8001")) # set player 1 input to 'A'
+        dolphin_memory_engine.write_word(int("0x805BAD04", 0), int("0x00000100",0)) # set player 1 button to 'A'
+        time.sleep(0.1)
+        dolphin_memory_engine.write_word(int("0x805BAD04", 0), int("0x00000000", 0))
+        stage_id = dolphin_memory_engine.read_word(int("0x8062B3B4", 0))
+
+def press_right():
+    # maybe should nop instruction that writes to button address for consistency?
+
+    for i in range(100):
+        # dolphin_memory_engine.write_bytes(int("0x805BC068", 0), bytes.fromhex("C8C0")) # set player 1 input to 'dpad right'
+        dolphin_memory_engine.write_word(int("0x805BAD04", 0), int("0x00000002",0)) # set player 1 input to 'dpad right'
+
 if __name__ == '__main__':
-
-    # config = get_config()
-
-    # tlst_name = "Battlefield_Melee" #"Mushroom_Kingdom_64"
-    #
-    # with open(os.path.join(config["soundDir"], "tracklist", tlst_name + ".tlst"), "rb") as f:
-    #     tlst_bytes = f.read()
-    #
-    #     i = 12
-    #
-    #     while(len(tlst_bytes[i:i+2]) == 2):
-    #         if tlst_bytes[i:i+2] == b'\x00\x00':
-
-
-
-
-
 
     print("Run P+ in Dolphin to start")
     done = False
 
     is_loaded = False
     is_ingame = False
+    current_replay = 0
 
-    prev_bytes = ""
     while not done:
         if not dolphin_memory_engine.is_hooked():
             dolphin_memory_engine.hook()
             if dolphin_memory_engine.is_hooked():
-                print("Hooked to Dolphin, Looking for replays")
+                print("Hooked to Dolphin, looking for replays...")
         else:
             try:
                 pass
                 #frames_into_runtime = dolphin_memory_engine.read_word(int("0x805B5014", 0))
-                #8053f1f4
-                #if frames_into_runtime < 10000000000000000 and frames_into_runtime > 150:
+                num_replays = dolphin_memory_engine.read_word(int("0x815C3D20", 0))
 
-                num_replays = dolphin_memory_engine.read_word(int("0x9017DA00", 0))
-                if num_replays == 0:
+                if num_replays == 0 or num_replays > 100000:
 
-                    dolphin_memory_engine.write_bytes(int("0x806dd600",0), bytes.fromhex('4BE61BF4')) # b 0x053f1f4 [branch to end of STEX memory]
+                    dolphin_memory_engine.write_word(int("0x806dd600",0), int('0x4BE61BF4',0)) # b 0x053f1f4 [branch to end of STEX memory]
                     #dolphin_memory_engine.write_bytes(int("0x8053f1f4",0), bytes.fromhex("38951D68")) # addi r4, r21, 0x1884 [for Main Menu scene]
-                    dolphin_memory_engine.write_bytes(int("0x8053f1f4", 0), bytes.fromhex("38951884"))  # addi r4, r21, 0x1D68 [for Replay scene]
-                    dolphin_memory_engine.write_bytes(int("0x8053f1f8",0), bytes.fromhex("80c60000")) # r6, 0 (r6) [original function]
-                    dolphin_memory_engine.write_bytes(int("0x8053f1fc",0), bytes.fromhex("4819E408")) # b 0x06dd604 [branch back]
+                    dolphin_memory_engine.write_word(int("0x8053f1f4", 0), int("0x38951884",0))  # addi r4, r21, 0x1D68 [for Replay scene]
+                    dolphin_memory_engine.write_word(int("0x8053f1f8",0), int("0x80c60000",0)) # r6, 0 (r6) [original function]
+                    dolphin_memory_engine.write_word(int("0x8053f1fc",0), int("0x4819E408",0)) # b 0x06dd604 [branch back]
 
                     ## Found addresses by looking at register at breakpoint around 0x806DD5F8 (which is where Boot Directly to CSS v4 writes to).
                     # 80701d68 - Main Menu scene string address (sqMenuMain)
                     # 80701b54 - CSS scene string address (sqVsMelee)
                     # 80701884 - Replay scene string address? (sqReplay) (Found by string searching in DME)
 
-                    # define PLAY_INPUT_LOC_START 0x805BC068 //the location of P1's inputs.  Add 4 for the next player during playback
-                    # define PLAY_BUTTON_LOC_START 0x805BAD04 //the location of P1's buttons.  Add 0x40 for the next player
-
-                    #dolphin_memory_engine.write_bytes(int("0x806DD5F8", 0), b"38951D68") # addi r4, r21, 0x1D68
-
-                #print(num_replays)
                 else:
                     if not is_loaded:
                         print("Replays loaded, starting to record")
                         dolphin_memory_engine.write_bytes(int("0x806dd600", 0), bytes.fromhex('80c60000')) # reset to original behaviour just in case
                         is_loaded = True
-                    num_replays = dolphin_memory_engine.read_word(int("0x9017DA00", 0))
-                    print(num_replays)
 
-                    for i in range(2):
-                        pass
-                    #string_start_offset = int.from_bytes(dolphin_memory_engine.read_bytes(int("0x8053F200", 0) + 10, 2), "big", signed = False)
-                    #last_string_offset_bytes = dolphin_memory_engine.read_bytes(int("0x8053F200", 0) + 6 + num_entries*16, 2)
-                    #last_string_offset = int.from_bytes(last_string_offset_bytes, "big", signed=False)
+                    # TODO: Have functionality to start at a certain replay index (scroll to start) and end a certain replay index
 
-                    #for i in range(1,num_entries):
-                    #    dolphin_memory_engine.write_bytes(int("0x8053F200", 0) + 6 + i*16, last_string_offset_bytes)
+                    test = dolphin_memory_engine.read_bytes(int("0x9017DA00", 0), 4)[1:4]
+                    for i in range(current_replay, num_replays):
+                        current_replay = i
+
+                        hold_A_until_match_started()
+                        time.sleep(1)
+                        print(f"Recording Replay ({current_replay + 1}/{num_replays})...")
+                        record_replay()
+                        time.sleep(5)
+                        press_right()
+                    print("Recorded all replays")
+                    break
 
 
-                    #dolphin_memory_engine.write_bytes(int("0x8053F200", 0) + string_start_offset + last_string_offset, b"This is a testtt name\00")
-
-                    #prev_bytes = current_bytes
-
-                #last_string_offset = int.from_bytes(last_string_offset, "big", signed = False)
-                #print(last_string_offset)
             except RuntimeError:
                 dolphin_memory_engine.un_hook()
                 is_loaded = False
