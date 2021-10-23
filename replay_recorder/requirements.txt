@@ -1,1 +1,2 @@
 dolphin-memory-engine
+obs-websocket-py
