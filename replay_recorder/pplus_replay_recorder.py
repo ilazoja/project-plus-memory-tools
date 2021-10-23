@@ -2,6 +2,7 @@
 import os
 import time
 import subprocess
+import getpass
 
 import dolphin_memory_engine
 import websocket
@@ -45,16 +46,15 @@ def press_right():
 if __name__ == '__main__':
     print("Welcome to the P+ Replay Recorder! This program will automatically go through every replay in your P+ Dolphin and tell OBS to record")
     print("Make sure you have OBS and OBS Websocket installed and have OBS open")
-    print("")
 
     ## Connect to OBS
     try:
-        client = obswebsocket.obsws("localhost", 4444, "secret")
+        client = obswebsocket.obsws("localhost", 4444, getpass.getpass("If authentication is enabled on OBS Websocket, enter passcode: "))
         client.connect()
         client.call(obswebsocket.requests.GetVersion()).getObsWebsocketVersion()
         print("Connected to OBS")
     except obswebsocket.exceptions.ConnectionFailure:
-        print("Could not connect to OBS. Make sure you installed OBS and the OBS Websocket and that OBS is open if you want to use OBS to record")
+        print("Could not connect to OBS. Make sure you installed OBS and the OBS Websocket and that OBS is open if you want to use OBS to record as well as ensure that you put the right passcode from Tools -> WebSockets Server Settings if authentication is enabled.")
 
     mode = input("Type whether you want to record replays or live gameplay (Replay [r], Live [l]): ").lower()
     print("Run P+ in Dolphin to start")
