@@ -2,7 +2,7 @@
 
 This python program is designed to be a workaround to play customized music during P+ netplay without desyncing.
 
-The way it works is that it hooks onto P+ Dolphin (using [py-dolphin-memory-engine](py-dolphin-memory-engine
+The way it works is that it hooks onto P+ Dolphin (using [py-dolphin-memory-engine](https://github.com/henriquegemignani/py-dolphin-memory-engine
 )), finds the current P+ tracklist (.tlst) being used in game, reads the corresponding tracklist outside Dolphin and then plays a random song from the tracklist externally using [foobar2000](https://www.foobar2000.org/).
 
 ***
