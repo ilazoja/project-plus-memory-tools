@@ -49,13 +49,14 @@ if __name__ == '__main__':
 
     ## Connect to OBS
     try:
-        client = obswebsocket.obsws("localhost", 4444, getpass.getpass("If authentication is enabled on OBS Websocket, enter passcode: "))
+        client = obswebsocket.obsws("localhost", 4444, getpass.getpass("If authentication is enabled on OBS Websocket (set in Tools -> WebSockets Server Settings in OBS), enter passcode: "))
         client.connect()
         client.call(obswebsocket.requests.GetVersion()).getObsWebsocketVersion()
         print("Connected to OBS")
     except obswebsocket.exceptions.ConnectionFailure:
         print("Could not connect to OBS. Make sure you installed OBS and the OBS Websocket and that OBS is open if you want to use OBS to record as well as ensure that you put the right passcode from Tools -> WebSockets Server Settings if authentication is enabled.")
 
+    print("")
     mode = input("Type whether you want to record replays or live gameplay (Replay [r], Live [l]): ").lower()
     print("Run P+ in Dolphin to start")
     done = False
@@ -100,7 +101,7 @@ if __name__ == '__main__':
                         print("")
 
                         ## Get user input for replays to skip and what to
-                        print("Set up scene in OBS, then in-game select 'SD Card' if you want to obtain the replays from the virtual sd card.")
+                        print("Set up scene in OBS, then in the in-game replay menu select 'SD Card -> Check Content' if you want to obtain the replays from the virtual sd card.")
 
                         replays_to_skip = input("Once ready, type any replay indices you want to skip (e.g. 1,3,5) and press enter to begin recording: ")
                         replays_to_skip = ''.join(replays_to_skip.split()).split(',')
