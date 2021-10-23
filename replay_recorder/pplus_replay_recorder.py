@@ -8,21 +8,22 @@ import websocket
 
 import obswebsocket, obswebsocket.requests
 
-def record_replay(client):
+def record_match(client):
+    stage_id = dolphin_memory_engine.read_word(int("0x8062B3B4", 0))
+    if stage_id != 255 and stage_id != 40: # if in a match and it's not the results screen
+        ## Start recording in OBS
+        try:
+            client.call(obswebsocket.requests.StartRecording())
+        except websocket._exceptions.WebSocketConnectionClosedException:
+            print("Could not connect to OBS")
 
-    ## Start recording in OBS
-    try:
-        client.call(obswebsocket.requests.StartRecording())
-    except websocket._exceptions.WebSocketConnectionClosedException:
-        print("Could not connect to OBS")
+        while (dolphin_memory_engine.read_word(int("0x8062B3B4", 0)) != 255): # while still in a match (stage id of not 255 means you are still in game)
+            pass
 
-    while (dolphin_memory_engine.read_word(int("0x8062B3B4", 0)) != 255): # while still in a match (stage id of not 255 means you are still in game)
-        pass
-
-    try:
-        client.call(obswebsocket.requests.StopRecording())
-    except websocket._exceptions.WebSocketConnectionClosedException:
-        pass
+        try:
+            client.call(obswebsocket.requests.StopRecording())
+        except websocket._exceptions.WebSocketConnectionClosedException:
+            pass
 
 def hold_A_until_match_started():
     stage_id = dolphin_memory_engine.read_word(int("0x8062B3B4", 0))
@@ -55,6 +56,7 @@ if __name__ == '__main__':
     except obswebsocket.exceptions.ConnectionFailure:
         print("Could not connect to OBS. Make sure you installed OBS and the OBS Websocket and that OBS is open if you want to use OBS to record")
 
+    mode = input("Type whether you want to record replays or live gameplay (Replay [r], Live [l]): ").lower()
     print("Run P+ in Dolphin to start")
     done = False
 
@@ -64,51 +66,67 @@ if __name__ == '__main__':
         if not dolphin_memory_engine.is_hooked():
             dolphin_memory_engine.hook()
             if dolphin_memory_engine.is_hooked():
-                print("Hooked to Dolphin, looking for replays...")
+                if mode == 'replay' or mode == 'r':
+                    print("Hooked to Dolphin, waiting for replays to be loaded...")
+                else:
+                    print("Hooked to Dolphin, will record matches...")
         else:
             try:
                 pass
-                #frames_into_runtime = dolphin_memory_engine.read_word(int("0x805B5014", 0))
-                num_replays = dolphin_memory_engine.read_word(int("0x815C3D20", 0))
+                frames_into_runtime = dolphin_memory_engine.read_word(int("0x805B5014", 0))
+                #num_replays = dolphin_memory_engine.read_word(int("0x815C3D20", 0))
 
-                if num_replays == 0 or num_replays > 100000:
+                if mode == 'replay' or mode == 'r':
+                    num_replays = dolphin_memory_engine.read_word(int("0x815E8398", 0))
 
-                    ## makeshift gecko hook to tell the game to start at replay scene
+                    if (num_replays == 0 or num_replays > 100000) or (frames_into_runtime < 300):
 
-                    dolphin_memory_engine.write_word(int("0x806dd600",0), int('0x4BE61BF4',0)) # b 0x053f1f4 [branch to end of STEX memory]
-                    #dolphin_memory_engine.write_bytes(int("0x8053f1f4",0), bytes.fromhex("38951D68")) # addi r4, r21, 0x1884 [for Main Menu scene]
-                    dolphin_memory_engine.write_word(int("0x8053f1f4", 0), int("0x38951884",0))  # addi r4, r21, 0x1D68 [for Replay scene]
-                    dolphin_memory_engine.write_word(int("0x8053f1f8",0), int("0x80c60000",0)) # r6, 0 (r6) [original function]
-                    dolphin_memory_engine.write_word(int("0x8053f1fc",0), int("0x4819E408",0)) # b 0x06dd604 [branch back]
+                        ## makeshift gecko hook to tell the game to start at replay scene
 
-                    ## Found addresses by looking at register at breakpoint around 0x806DD5F8 (which is where Boot Directly to CSS v4 writes to).
-                    # 80701d68 - Main Menu scene string address (sqMenuMain)
-                    # 80701b54 - CSS scene string address (sqVsMelee)
-                    # 80701884 - Replay scene string address (sqReplay) (Found by string searching in DME)
+                        dolphin_memory_engine.write_word(int("0x806dd600",0), int('0x4BE61BF4',0)) # b 0x053f1f4 [branch to end of STEX memory]
+                        #dolphin_memory_engine.write_bytes(int("0x8053f1f4",0), bytes.fromhex("38951D68")) # addi r4, r21, 0x1884 [for Main Menu scene]
+                        dolphin_memory_engine.write_word(int("0x8053f1f4", 0), int("0x38951884",0))  # addi r4, r21, 0x1D68 [for Replay scene]
+                        dolphin_memory_engine.write_word(int("0x8053f1f8",0), int("0x80c60000",0)) # r6, 0 (r6) [original function]
+                        dolphin_memory_engine.write_word(int("0x8053f1fc",0), int("0x4819E408",0)) # b 0x06dd604 [branch back]
+
+                        ## Found addresses by looking at register at breakpoint around 0x806DD5F8 (which is where Boot Directly to CSS v4 writes to).
+                        # 80701d68 - Main Menu scene string address (sqMenuMain)
+                        # 80701b54 - CSS scene string address (sqVsMelee)
+                        # 80701884 - Replay scene string address (sqReplay) (Found by string searching in DME)
+
+                    else:
+                        dolphin_memory_engine.write_bytes(int("0x806dd600", 0), bytes.fromhex('80c60000')) # reset to original behaviour just in case
+                        print("Replays loaded")
+                        print("")
+
+                        ## Get user input for replays to skip and what to
+                        print("Set up scene in OBS, then in-game select 'SD Card' if you want to obtain the replays from the virtual sd card.")
+
+                        replays_to_skip = input("Once ready, type any replay indices you want to skip (e.g. 1,3,5) and press enter to begin recording: ")
+                        replays_to_skip = ''.join(replays_to_skip.split()).split(',')
+                        replays_to_skip = [int(replay_to_skip) for replay_to_skip in replays_to_skip if replay_to_skip.isdigit()]
+
+                        num_replays = dolphin_memory_engine.read_word(int("0x815E8398", 0))
+
+                        ## Automatically go through each replay
+                        for i in range(num_replays):
+                            current_replay = i + 1
+                            if current_replay in replays_to_skip:
+                                print(f"Skipping Replay ({current_replay}/{num_replays})...")
+                                time.sleep(2)
+                            else:
+                                hold_A_until_match_started()
+                                time.sleep(0.5)
+                                print(f"Recording Replay ({current_replay}/{num_replays})...")
+                                record_match(client)
+                                time.sleep(4)
+
+                            press_right()
+                        print("Recorded all replays")
+                        break
 
                 else:
-                    dolphin_memory_engine.write_bytes(int("0x806dd600", 0), bytes.fromhex('80c60000')) # reset to original behaviour just in case
-                    print("Replays loaded")
-
-                    ## Get user input for replays to skip
-                    user_input = input("Set up scene in OBS, then type replay indices you want to skip (e.g. 1,3,5) and press enter: ")
-                    replays_to_skip = ''.join(user_input.split()).split(',')
-                    replays_to_skip = [int(replay_to_skip) for replay_to_skip in replays_to_skip if replay_to_skip.isdigit()]
-
-                    ## Automatically go through each replay
-                    for i in range(num_replays):
-                        current_replay = i + 1
-                        if current_replay in replays_to_skip:
-                            print(f"Skipping Replay ({current_replay}/{num_replays})...")
-                        else:
-                            hold_A_until_match_started()
-                            time.sleep(0.5)
-                            print(f"Recording Replay ({current_replay}/{num_replays})...")
-                            record_replay(client)
-                        time.sleep(5)
-                        press_right()
-                    print("Recorded all replays")
-                    break
+                    record_match(client)
 
 
             except RuntimeError:
