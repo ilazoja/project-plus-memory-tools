@@ -21,7 +21,7 @@ Install [OBS](https://obsproject.com/) and [obs-websocket](https://github.com/Pa
 
 pplus_replay_recorder.py
 
-The program will hook onto P+ Dolphin as soon as the game loads. If OBS and obs-websocket is installed, it will connect to OBS. When the program starts, you have the option to record replays or record live matches.
+The program will hook onto P+ Dolphin as soon as the game loads. If OBS and obs-websocket is installed and you type your passcode set in Tools -> Websockets Server Settings (if authentication is enabled), it will connect to OBS. When the program starts, you have the option to record replays or record live matches.
 
 Starting P+ with this program active (and record replays was selected) will take you straight to the replay menu. You may set up your OBS scene at this point. From there the program will ask you for the replay indices that you want to skip (e.g. 3,4,7). Once entered, the program will automatically go through and play each replay. If connected to OBS, the program will prompt OBS to record only while in a replay.
 
