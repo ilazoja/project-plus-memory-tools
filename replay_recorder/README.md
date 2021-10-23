@@ -30,6 +30,7 @@ Use Bird's Replay Manager (included in P+ Dolphin) to manage replays from netpla
 ***
 # Future Plans
 
+- Detect desyncs that will stall the replay recording
 - ???
 
 ***
