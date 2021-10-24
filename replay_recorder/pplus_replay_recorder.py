@@ -49,7 +49,7 @@ if __name__ == '__main__':
 
     ## Connect to OBS
     try:
-        client = obswebsocket.obsws("localhost", 4444, getpass.getpass("If authentication is enabled on OBS Websocket (set in Tools -> WebSockets Server Settings in OBS), enter passcode: "))
+        client = obswebsocket.obsws("localhost", 4444, getpass.getpass("If authentication is enabled on OBS Websocket (set in Tools -> WebSockets Server Settings in OBS), enter passcode: ")) # for some reason will hang when pressing run with pycharm, works with debug though
         client.connect()
         client.call(obswebsocket.requests.GetVersion()).getObsWebsocketVersion()
         print("Connected to OBS")
@@ -103,6 +103,7 @@ if __name__ == '__main__':
                         ## Get user input for replays to skip and what to
                         print("Set up scene in OBS, then in the in-game replay menu select 'SD Card -> Check Content' if you want to obtain the replays from the virtual sd card.")
 
+                        ## TODO: be able to select range of replay indices to skip (e.g. 2-5)
                         replays_to_skip = input("Once ready, type any replay indices you want to skip (e.g. 1,3,5) and press enter to begin recording: ")
                         replays_to_skip = ''.join(replays_to_skip.split()).split(',')
                         replays_to_skip = [int(replay_to_skip) for replay_to_skip in replays_to_skip if replay_to_skip.isdigit()]
