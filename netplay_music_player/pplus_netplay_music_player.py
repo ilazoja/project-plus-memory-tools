@@ -288,9 +288,9 @@ if __name__ == '__main__':
                             print(f"Now playing: {str(chosen_song_entry.name, 'utf-8')} ({os.path.basename(song_filepaths[0])})")
                     if play_status == PlayStatus.STAGE_LOADED:
                         # play song (delay if there is a set delay)
-                        if isEndOfGame():
-                            play_status = PlayStatus.GAME_ENDED
-                        elif use_pinch or not config['useDelay'] or chosen_song_entry.song_delay != -1:
+                        #if isEndOfGame():
+                        #    play_status = PlayStatus.GAME_ENDED
+                        if use_pinch or not config['useDelay'] or chosen_song_entry.song_delay != -1:
                             if (current_timestamp - last_played_timestamp >= min_song_switch_time) and (use_pinch or current_timestamp - stage_loaded_timestamp >= chosen_song_entry.song_delay / 60):
                                 # delay for switching songs otherwise songs will get added together as well as song delay to delay after match is staarted, song_delay is in frames, Brawl runs 60fps, assume no lag.
                                 subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
@@ -302,25 +302,27 @@ if __name__ == '__main__':
                                 play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
                                 last_played_timestamp = current_timestamp
                     if play_status == play_status.PLAYING:
-                        if isEndOfGame() and not isStamina(): # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
-                            subprocess.Popen([config["foobarPath"], "/stop"])
-                            play_status = PlayStatus.GAME_ENDED
-                            time.sleep(0.1)
-                        elif (current_timestamp - last_played_timestamp >= min_song_switch_time and use_pinch):
+                        #if isEndOfGame() and not isStamina(): # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
+                        #    subprocess.Popen([config["foobarPath"], "/stop"])
+                        #    play_status = PlayStatus.GAME_ENDED
+                        #    time.sleep(0.1)
+                        if (current_timestamp - last_played_timestamp >= min_song_switch_time and use_pinch):
                             subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]])  # "/next"])
                             play_status = PlayStatus.PINCH
                             last_played_timestamp = current_timestamp
-                    if play_status == play_status.PINCH:
-                        if isEndOfGame() and not isStamina():  # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
-                            subprocess.Popen([config["foobarPath"], "/stop"])
-                            play_status = PlayStatus.GAME_ENDED
-                            time.sleep(0.1)
-                    if play_status == PlayStatus.GAME_ENDED:
-                        current_num_players_remaining = sum((s > 0 or s == -1) for s in stock_count)
-                        if current_timestamp - last_played_timestamp >= min_song_switch_time and (not isEndOfGame() and num_players == current_num_players_remaining):
-                            subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]]) # "/next"])
-                            play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
-                            last_played_timestamp = current_timestamp
+                    #if play_status == play_status.PINCH:
+                    #    pass
+                        #if isEndOfGame() and not isStamina():  # detect end of game, will get triggered if stock is lost during stamina so made stamina mode check
+                        #    subprocess.Popen([config["foobarPath"], "/stop"])
+                        #    play_status = PlayStatus.GAME_ENDED
+                        #    time.sleep(0.1)
+                    # if play_status == PlayStatus.GAME_ENDED:
+                    #     current_num_players_remaining = sum((s > 0 or s == -1) for s in stock_count)
+                    #     test = isEndOfGame()
+                    #     if current_timestamp - last_played_timestamp >= min_song_switch_time and (not isEndOfGame() and num_players == current_num_players_remaining):
+                    #         subprocess.Popen([config["foobarPath"], "/immediate", song_filepaths[0]]) # "/next"])
+                    #         play_status = PlayStatus.PINCH if use_pinch else PlayStatus.PLAYING
+                    #         last_played_timestamp = current_timestamp
 
                     prev_frames_into_current_game = frames_into_current_game
             except RuntimeError:

@@ -207,7 +207,7 @@ def get_stage_id():
     return dolphin_memory_engine.read_word(int("0x8062B3B4", 0))
 
 def isEndOfGame():
-    return dolphin_memory_engine.read_byte(int("0x804953B0", 0))
+    return dolphin_memory_engine.read_byte(int("0x804953B0", 0)) # Note: also triggers for Zelda/Sheik transformation
 
 if __name__ == '__main__':
 
