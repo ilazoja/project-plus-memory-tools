@@ -54,3 +54,5 @@ Eon for the memory addresses/pointers DME file
 soopercool101 for tlst parsing reference from [BrawlCrate](https://github.com/soopercool101/BrawlCrate) and tlst editing
 
 [py-dolphin-memory-engine](https://github.com/henriquegemignani/py-dolphin-memory-engine) and [vgmstream](https://vgmstream.org/) contributors
+
+sparkswordkirby for the global tracklist feature
