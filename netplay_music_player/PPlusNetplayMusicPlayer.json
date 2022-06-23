@@ -1,9 +1,10 @@
 { "stexMemAddress": "0x8053F000",
   "tlstMemAddress": "0x8053F200",
-  "soundDir": "G:\\Games\\Brawl\\Custom Build\\LegacyMP+ v2.28\\Project+\\pf\\sound",
+  "soundDir": ".\\sound",
   "tracklistFolder": "tracklist",
   "foobarPath": "C:/Program Files (x86)/foobar2000/foobar2000.exe",
   "readFreq": 0.1,
   "displayTrackName": true,
   "useDelay": true,
+  "useGlobal": false,
   "useVolume": false}
