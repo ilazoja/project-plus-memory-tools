@@ -178,6 +178,7 @@ if __name__ == '__main__':
     prev_frames_into_current_game = 0
     last_played_timestamp = time.time()
     done = False
+    global_tlst = config["useGlobal"]
 
     print("")
     print("To begin, please start P+ Netplay (reminder to check 'Client Side Music Off' to turn off in game music). Use left/right arrows to adjust volume")
@@ -204,6 +205,9 @@ if __name__ == '__main__':
                     if (prev_rel_name != current_rel_name or prev_stage_name != current_stage_name or frames_into_current_game < prev_frames_into_current_game): # if rel name changed, that means stage changed
                         current_tlst_name = str(stex_bytes[stex_string_start_offset:stex_string_start_offset + stage_name_offset - 1], 'utf-8')#str(dolphin_memory_engine.read_bytes(int(config["stexMemAddress"], 0) + stex_string_start_offset, stage_name_offset - 1), 'utf-8')
 
+                        # Check for global_tlst flag, don't set to global unless flag is true and tlst is not menu or results
+                        if global_tlst and os.path.isfile(config["soundDir"] + "\\tracklist\\Global.tlst") and not ("Menu" in current_tlst_name or "Results" in current_tlst_name):
+                            current_tlst_name = "Global"
                         print(f"Current tlst: {current_tlst_name}")
                         if os.path.isfile(os.path.join(config["soundDir"], config["tracklistFolder"], current_tlst_name + ".tlst")):
                             chosen_song_entry = pick_song(current_tlst_name, config["soundDir"], config["tracklistFolder"])

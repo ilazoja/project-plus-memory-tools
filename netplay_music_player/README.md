@@ -31,6 +31,8 @@ Left/right arrows adjust the music volume (up/down is used by P+ Dolphin to adju
 
 The tracklists can be edited with BrawlCrate and foobar2000 should be able to support most vgm and music files (although brstm is preferred for looping capabilities and compatibility in game). Please consult the [Project+ Music Modding Guide](https://docs.google.com/document/d/1AC4isXShcu9ufUwM5H34dR2orLmsW0xCZXz_lubhixY/edit) (specifically Method 2) for info about modifying tracklists and the music system.
 
+If you want to use the global tracklist option, which uses the same tracklist no matter what stage you play on, change "use_global" to true. As long as your sound directory has a global.tlst, it will play off this for every stage. If this is set and the file is not available, it will behave as normal without the global tracklist.
+
 The name of the track will be updated in game. From testing this does not desync netplay (although sometimes there will be a warning that a possible desync occurred), however if you're worried about desyncs, set **displayTrackName** in PPlusNetplayMusicPlayer.json to _false_
 
 You can set the **tracklist** folder name in PPlusNetplayMusicPlayer.json which makes it easy to have different set of tracklists that reference the same pool of songs, might be handy if you netplay with different builds.
